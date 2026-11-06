@@ -70,7 +70,7 @@ export function Shell({ page, onNavigate, children }: { page: PageId; onNavigate
             </button>
           </div>
           <div className="grid gap-1.5">
-            {integrations.slice(0, 3).map((i) => (
+            {integrations.slice(0, 4).map((i) => (
               <div key={i.name} className="flex items-center justify-between gap-2 text-[11.5px]">
                 <span className="flex items-center gap-1.5 text-foreground/80">
                   <Dot tone={i.mode === "live" ? (i.connected ? "green" : "red") : i.mode === "disabled" ? "muted" : "amber"} />

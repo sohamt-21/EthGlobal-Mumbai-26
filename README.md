@@ -22,7 +22,7 @@ results. Privileged operations are gated by **World ID**.
 | **World ID** IDKit v4 (server RP signing, proof forwarding, nonce replay protection, sessions, protected ops) | ✅ implemented + tested against a mocked portal · ⚠️ needs app/RP credentials for live use |
 | Voice (Web Speech STT + TTS), text chat, conversation history | ✅ (STT needs Chrome/Edge/Safari; text always works) |
 | Frontend: Dashboard, Agent Registry, Command, Execution Trace, Arkiv Explorer, Identity & Trust | ✅ |
-| ENS | ⏸ names are labels only — no on-chain resolution |
+| **ENSv2** | ✅ Sepolia/Mainnet Permissioned Registry hierarchy, per-agent resolver records, and key-scoped EAC delegation from the Agents page |
 | Hedera x402 | ⏸ not implemented (P2) |
 
 Without credentials the app runs end-to-end on **clearly labelled** fallbacks: `DEV MOCK` inference (request IDs
@@ -55,6 +55,8 @@ npm run dev
 | 0G | `ZG_API_KEY` (+ `ZG_BASE_URL` for testnet, `ZG_MODEL`) | https://pc.0g.ai/dashboard/api-keys |
 | Arkiv | `ARKIV_PRIVATE_KEY` (funded with tGLM), `ARKIV_ACCESS_KEY` | key: `node --input-type=module -e "import{generatePrivateKey,privateKeyToAccount}from'viem/accounts';const k=generatePrivateKey();console.log(k,privateKeyToAccount(k).address)"` · faucet: https://hub.arkiv.network/faucet · access key: https://hub.arkiv.network/access-keys |
 | World ID | `WORLD_APP_ID`, `WORLD_RP_ID`, `WORLD_RP_SIGNING_KEY`, `WORLD_ACTION` | https://developer.world.org (create app + RP; `WORLD_ENVIRONMENT=staging` to use the simulator) |
+
+ENSv2 uses the connected browser wallet rather than server environment keys. Open **Agents**, choose Sepolia or Ethereum Mainnet, connect MetaMask, and enter a parent `.eth` name that the connected account owns on ENSv2. The app creates the `voxmesh` namespace, a Supervisor subregistry, and unique Research/Security subnames. It writes text records through an ENSv2 Permissioned Resolver and can grant an address permission to update only one agent's endpoint key. New names default to one-year expiry and are non-transferable; both options can be changed before creation. The wallet must have network gas, and each transaction is confirmed in the wallet.
 
 Check connectivity:
 
@@ -98,6 +100,8 @@ npm run test:integration
 
 **World ID** — IDKit v4: server-side RP signature (`@worldcoin/idkit/signing`), `IDKitRequestWidget` on the client, backend forwards the proof unchanged to `/api/v4/verify/{rp_id}`, nonce issuance/replay/expiry checks, hashed nullifier subject, session permissions. Agent registration/ownership is always human-gated; workflows optionally (`WORKFLOW_REQUIRES_HUMAN=true`). A dev bypass exists only behind `WORLD_ID_DEV_BYPASS=true`, is disabled when World ID is configured, and is labelled `dev-bypass` everywhere.
 
+**ENSv2** — Uses the official Mainnet/Sepolia Verifiable Factory, UserRegistry and Permissioned Resolver implementations. The user's wallet owns a configurable parent `.eth` name; agent names are nested below `voxmesh` and the Supervisor, with per-agent text records and key-scoped Enhanced Access Control for endpoint delegation. The ENS manager verifies the resulting records through the chain's Universal Resolver. No placeholder `.eth` labels are treated as registered identities.
+
 ## Limitations
 
 - Contract analysis is static, text-based pattern matching + LLM review of supplied source. It is **not an audit**; reports say so. No on-chain fetching of verified source.
@@ -105,4 +109,4 @@ npm run test:integration
 - Claims are exclusive within one runtime (single signer, serialized read-check-write). Multiple independent runtimes would need an on-chain lock or per-agent signers.
 - Arkiv writes take a block (~2 s) each; a full live workflow adds ~15 s of chain latency.
 - Voice input uses the browser Web Speech API (not available in Firefox); text input is always available.
-- ENS names are display labels; Hedera x402 is not implemented.
+- ENSv2 writes require an existing ENSv2 parent name, wallet approval, and gas; parent names still using the legacy registry must be migrated before they can manage this hierarchy. Hedera x402 is not implemented.

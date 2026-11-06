@@ -15,7 +15,6 @@ export class ResearchAgent implements Agent {
   readonly name = "Research Agent"
   readonly description = "Analyses supplied smart-contract source with allowlisted static tools and 0G inference, producing a structured research report."
   readonly capabilities = ["contract_research" as const, "source_analysis" as const]
-  readonly ensName = "research.voxmesh.eth"
 
   async execute(task: Task, ctx: AgentContext): Promise<AgentOutput> {
     const source = typeof task.input.source === "string" ? task.input.source : ""

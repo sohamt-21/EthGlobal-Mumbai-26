@@ -54,7 +54,7 @@
 
 ```ts
 interface Agent {
-  id: AgentId; name: string; description: string; capabilities: Capability[]; ensName: string
+   id: AgentId; name: string; description: string; capabilities: Capability[]
   execute(task: Task, context: AgentContext): Promise<AgentOutput>
 }
 ```
@@ -97,10 +97,25 @@ Statuses: workflow `planning → running → completed | partial | failed`; task
 |---|---|---|
 | Runtime execution state (workflow object, trace, agent busy/idle) | Orchestrator memory | process |
 | Decentralised task state (tasks, results, messages, workflow records) | Arkiv entities | `ARKIV_TASK_TTL_HOURS` / 7 days |
-| Persistent agent metadata (registrations, ownership, ENS label) | Arkiv entities | `ARKIV_AGENT_TTL_DAYS` |
+| Persistent agent metadata (registrations, ownership, ENS name mirror) | Arkiv entities | `ARKIV_AGENT_TTL_DAYS` |
+| Agent names, resolver records, and delegated record roles | ENSv2 Permissioned Registries + Permissioned Resolver | chosen name expiry / chain state |
 | Conversation history | Workflows (command + final report) | process; summaries on Arkiv |
 | Identity sessions | IdentityService memory (opaque bearer tokens) | `IDENTITY_SESSION_TTL_MINUTES` |
 | Identity attestations | Arkiv `voxmesh.identity.v1` (hashed subject only) | 7 days |
+
+## ENSv2 agent namespace
+
+ENS names are created from the Agent Registry page using the user's injected wallet; no server-held signing key is used. The connected account must own an active ENSv2 `.eth` parent on Ethereum Mainnet or Sepolia, or hold the ENSv2 registry role required to attach/register subnames. The integration creates and links UserRegistry proxies as needed, then registers:
+
+```text
+<parent>.eth
+└── voxmesh.<parent>.eth
+   └── supervisor.voxmesh.<parent>.eth
+      ├── research.supervisor.voxmesh.<parent>.eth
+      └── security.supervisor.voxmesh.<parent>.eth
+```
+
+Each agent gets its own ENS registry entry and text-record bundle. The account's Permissioned Resolver is deployed through the official Verifiable Factory; endpoint editor rights are delegated with `grantSetterRoles` to the agent-specific text key. This is key-scoped resolver permissioning, not name-scoped permissioning. Names default to one-year expiry and non-transferability; both can be selected at creation. ENSv2 remains the source of truth; the verified agent registry may mirror names to Arkiv.
 
 ## Arkiv entity schemas
 

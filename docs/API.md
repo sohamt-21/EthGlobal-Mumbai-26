@@ -14,13 +14,13 @@ Auth: `Authorization: Bearer <session token>` (from World ID verification) and/o
 | Method | Path | Auth | Description |
 |---|---|---|---|
 | GET | `/api/health` | — | Liveness + active adapter modes |
-| GET | `/api/integrations/status[?refresh=1]` | — | 0G / Arkiv / World ID / ENS / Hedera status with `mode` = `live` \| `mock` \| `memory` \| `dev-bypass` \| `disabled` |
+| GET | `/api/integrations/status[?refresh=1]` | — | 0G / Arkiv / World ID / ENSv2 / Hedera status with `mode` = `live` \| `mock` \| `memory` \| `dev-bypass` \| `disabled` |
 | GET | `/api/runtime/stats` | — | Agents, active/completed/failed tasks, inference count |
 | GET | `/api/inference/recent` | — | Recent inference metadata (request IDs, provider, latency, cost, TEE) |
 | GET | `/api/samples` | — | Built-in sample contracts |
 | GET | `/api/agents` | — | Registered agents with registry entity keys, status, activity |
 | GET | `/api/agents/:id` | — | One agent |
-| POST | `/api/agents/register` | **verified human** | `{ id, ensName?, endpoint? }` — bind agent ownership to the caller; written to the store |
+| POST | `/api/agents/register` | **verified human** | `{ id, ensName?, endpoint? }` — bind runtime ownership to the caller; metadata is written to the store. ENSv2 names are separately created and verified on-chain by the Agents page wallet flow. |
 | GET | `/api/tasks?workflowId&status&capability&limit` | — | Query task entities from the coordination store |
 | GET | `/api/tasks/:key` | — | Read one task entity |
 | POST | `/api/tasks` | agent key or human | `{ type, description, requiredCapability, priority?, input?, workflowId? }` → creates an open task entity |

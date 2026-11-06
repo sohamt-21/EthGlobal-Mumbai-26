@@ -42,7 +42,6 @@ export interface Agent {
   readonly name: string
   readonly description: string
   readonly capabilities: Capability[]
-  readonly ensName: string
   execute(task: Task, context: AgentContext): Promise<AgentOutput>
 }
 

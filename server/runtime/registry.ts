@@ -18,6 +18,12 @@ type RuntimeState = {
   activity: { at: string; text: string }[]
 }
 
+const LEGACY_ENS_LABELS: Record<AgentId, string> = {
+  supervisor: "supervisor.voxmesh.eth",
+  research: "research.voxmesh.eth",
+  security: "security.voxmesh.eth",
+}
+
 /**
  * Agent registry. Persistent agent metadata lives in the coordination store (Arkiv);
  * runtime status (busy/idle, recent activity) is in-process only.
@@ -38,7 +44,7 @@ export class AgentRegistry {
         owner: "voxmesh-runtime",
         ownerVerified: false,
         endpoint: `${baseUrl}/api/agents/${a.id}`,
-        ensName: a.ensName,
+        ensName: null,
         entityKey: null,
         registeredAt: nowIso(),
         completed: 0,
@@ -73,7 +79,8 @@ export class AgentRegistry {
       s.owner = e.data.owner
       s.ownerVerified = e.data.owner !== "voxmesh-runtime"
       s.registeredAt = e.data.registeredAt
-      s.ensName = e.data.ensName
+      const previousPlaceholder = LEGACY_ENS_LABELS[e.data.agentId as AgentId]
+      s.ensName = e.data.ensName === previousPlaceholder ? null : e.data.ensName
       s.endpoint = e.data.endpoint || s.endpoint
     }
     const stored = await this.store.upsertAgents([...this.agents.keys()].map((id) => this.record(id)))

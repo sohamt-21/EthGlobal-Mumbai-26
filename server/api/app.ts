@@ -47,7 +47,7 @@ export function createApp(rt: Runtime) {
     if (!statusCache || Date.now() - statusCache.at > 15_000 || req.query.refresh === "1") {
       const data = await Promise.all([rt.inference.status(), rt.store.status(), rt.identity.status()])
       data.push(
-        { name: "ENS", mode: "disabled", connected: false, detail: "Agent ENS names are planned labels; no on-chain resolution in this build", meta: {}, checkedAt: nowIso() },
+        { name: "ENSv2", mode: "live", connected: true, detail: "Ethereum Mainnet and Sepolia are supported; connect a wallet on the Agents page to create or inspect hierarchical agent names", meta: {}, checkedAt: nowIso() },
         { name: "Hedera x402", mode: "disabled", connected: false, detail: "Not implemented in this build (P2 stretch)", meta: {}, checkedAt: nowIso() },
       )
       statusCache = { at: Date.now(), data }

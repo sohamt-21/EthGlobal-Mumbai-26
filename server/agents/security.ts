@@ -31,7 +31,6 @@ export class SecurityAgent implements Agent {
   readonly name = "Security Agent"
   readonly description = "Reviews research output and source for risks, producing severity-ranked findings cross-checked against deterministic signals."
   readonly capabilities = ["security_review" as const, "risk_assessment" as const]
-  readonly ensName = "security.voxmesh.eth"
 
   async execute(task: Task, ctx: AgentContext): Promise<AgentOutput> {
     const source = typeof task.input.source === "string" ? task.input.source : ""

@@ -31,7 +31,6 @@ export class SupervisorAgent implements Agent {
   readonly name = "Supervisor"
   readonly description = "Interprets requests, plans bounded workflows, delegates to specialists via Arkiv tasks and aggregates their results."
   readonly capabilities = ["planning" as const, "delegation" as const, "aggregation" as const]
-  readonly ensName = "supervisor.voxmesh.eth"
 
   async plan(ctx: AgentContext, hasSource: boolean): Promise<{ plan: ExecutionPlan | null; inference: InferenceMetadata[]; error: string | null }> {
     const { value, inference, error } = await inferStructured(
