@@ -12,8 +12,10 @@ import type {
 } from "../../shared/schemas"
 import type { InferenceAdapter } from "../adapters/inference/types"
 import type { CoordinationStore, ExecutionRecord } from "../adapters/store/types"
-import { heuristicAggregate, heuristicPlan } from "../agents/heuristics"
+import { heuristicAggregate, heuristicPlan, isPredictionMarketIntent } from "../agents/heuristics"
 import type { SupervisorAgent } from "../agents/supervisor"
+import { isNativeTransferIntent, parseSepoliaNativeTransfer, type SepoliaNativeTransfer } from "../agents/wallet-transfer"
+import { extractMarketQuery } from "../agents/prediction-market"
 import type { AppConfig } from "../config"
 import { newId, nowIso, sleep, withRetry, withTimeout } from "../lib/async"
 import { AppError, errorMessage, isTransient, notFound, redact } from "../lib/errors"
@@ -188,7 +190,17 @@ export class Orchestrator {
 
   private async run(wf: Workflow, input: ExecuteWorkflowInput) {
     const { cfg } = this.d
-    const { source, sampleId } = this.resolveSource(input)
+    const walletTransferIntent = isNativeTransferIntent(wf.command)
+    const predictionMarketIntent = isPredictionMarketIntent(wf.command)
+    let walletTransfer: SepoliaNativeTransfer | null = null
+    if (walletTransferIntent) {
+      try {
+        walletTransfer = parseSepoliaNativeTransfer(wf.command)
+      } catch {
+        walletTransfer = null
+      }
+    }
+    const { source, sampleId } = walletTransferIntent || predictionMarketIntent ? { source: null, sampleId: null } : this.resolveSource(input)
     if (source && source.length > 24_000) throw new AppError("SOURCE_TOO_LARGE", "Contract source must be under 24 KB", 400)
     if (source) this.sources.set(wf.id, source)
 
@@ -204,7 +216,11 @@ export class Orchestrator {
     const planCtx = this.context(wf, AbortSignal.timeout(cfg.AGENT_TASK_TIMEOUT_MS), 0)
     const available = await this.d.registry.availableCapabilities()
     let plan: ExecutionPlan
-    try {
+    if (walletTransferIntent) {
+      plan = heuristicPlan(wf.command, false)
+    } else if (predictionMarketIntent) {
+      plan = heuristicPlan(wf.command, false)
+    } else try {
       const proposed = await withRetry(() => this.d.supervisor.plan(planCtx, Boolean(source)), {
         retries: cfg.AGENT_MAX_RETRIES,
         onRetry: (n, e) => this.trace(wf, { agentId: "supervisor", action: "task.retry", status: "error", detail: `Planner attempt ${n} failed: ${errorMessage(e)}` }),
@@ -223,7 +239,8 @@ export class Orchestrator {
       plan = heuristicPlan(wf.command, Boolean(source))
       this.trace(wf, { agentId: "supervisor", action: "plan.fallback", status: "error", detail: `Planner inference unavailable (${errorMessage(error)}); using deterministic planner` })
     }
-    const finalCheck = validatePlan(plan, available, cfg.MAX_AGENT_CALLS_PER_WORKFLOW - 1, Boolean(source))
+    const maxSteps = Math.max(0, cfg.MAX_AGENT_CALLS_PER_WORKFLOW - (walletTransfer || predictionMarketIntent ? 0 : 1))
+    const finalCheck = validatePlan(plan, available, maxSteps, Boolean(source))
     if (!finalCheck.ok) {
       // e.g. analysis requested without source: answer instead of delegating
       plan = {
@@ -279,6 +296,8 @@ export class Orchestrator {
           source,
           sampleId,
           sourceHash: source ? createHash("sha256").update(source).digest("hex").slice(0, 16) : null,
+          transfer: step.type === "wallet_transfer" ? walletTransfer : null,
+          marketQuery: step.type === "market_research" ? extractMarketQuery(wf.command) : null,
         },
         resultEntityKey: null,
         createdAt: nowIso(),
@@ -355,6 +374,57 @@ export class Orchestrator {
     const research = byStep("research")?.status === "success" ? byStep("research")!.result.report : null
     const security = byStep("security")?.status === "success" ? byStep("security")!.result.assessment : null
     const failures = wf.tasks.filter((t) => t.status !== "completed").map((t) => `${t.type} ${t.status}`)
+    if (plan.intent === "wallet_transfer") {
+      const transferTask = stepToTask.get("wallet-transfer")
+      const transferResult = transferTask ? wf.results[transferTask.id] : undefined
+      const transactionHash = transferResult?.status === "success" ? transferResult.result.transactionHash : null
+      const success = typeof transactionHash === "string"
+      const detail = success
+        ? `Submitted ${walletTransfer!.amountEth} Sepolia ETH to ${walletTransfer!.recipient}. Transaction hash: ${transactionHash}`
+        : `No transaction was submitted. ${transferResult?.error?.message ?? "The MetaMask request failed."}`
+      wf.finalReport = {
+        title: success ? "Sepolia transfer submitted" : "Sepolia transfer not submitted",
+        markdown: `**Status:** ${success ? "Submitted" : "Not submitted"}\n\n${detail}`,
+        spokenSummary: detail,
+        overallRisk: null,
+        riskScore: null,
+        disclaimer: "MetaMask signed this transaction only after user approval. Submission does not guarantee confirmation on-chain.",
+      }
+      await this.finish(wf, success ? "completed" : "failed")
+      return
+    }
+    if (plan.intent === "prediction_market_simulation") {
+      const researchResult = byStep("market-research")
+      const simulationResult = byStep("lp-simulation")
+      const market = researchResult?.status === "success" ? researchResult.result.market as Record<string, unknown> : null
+      const simulation = simulationResult?.status === "success" ? simulationResult.result : null
+      const quotes = Array.isArray(simulation?.quotes)
+        ? simulation.quotes as { outcome?: unknown; side?: unknown; price?: unknown; maxShares?: unknown; notionalCapUsd?: unknown }[]
+        : []
+      const succeeded = researchResult?.status === "success" && simulationResult?.status === "success" && simulation?.simulationOnly === true
+      const details = succeeded
+        ? [
+            `**Market:** ${typeof market?.question === "string" ? market.question : "Polymarket market"}`,
+            `**Source:** ${typeof market?.marketUrl === "string" ? market.marketUrl : "Polymarket public data"}`,
+            `**Implied probability:** Yes ${typeof market?.yesProbability === "number" ? `${(market.yesProbability * 100).toFixed(1)}%` : "n/a"}; No ${typeof market?.noProbability === "number" ? `${(market.noProbability * 100).toFixed(1)}%` : "n/a"}`,
+            "**Simulated quotes (not submitted):**",
+            ...quotes.map((quote) => `- ${String(quote.outcome)} ${String(quote.side)} at ${typeof quote.price === "number" ? quote.price.toFixed(3) : "n/a"}; max ${typeof quote.maxShares === "number" ? quote.maxShares.toFixed(2) : "n/a"} shares / $${typeof quote.notionalCapUsd === "number" ? quote.notionalCapUsd.toFixed(2) : "n/a"}`),
+            `**Total notional cap:** $${typeof simulation?.totalQuoteNotionalCapUsd === "number" ? simulation.totalQuoteNotionalCapUsd.toFixed(2) : "n/a"}`,
+          ].join("\n\n")
+        : `No LP simulation was produced. ${researchResult?.error?.message ?? simulationResult?.error?.message ?? "Market research or quote simulation failed."}`
+      wf.finalReport = {
+        title: succeeded ? "Polymarket LP simulation" : "Polymarket simulation failed",
+        markdown: `**Mode:** ${succeeded ? "Simulation only" : "Stopped without orders"}\n\n${details}\n\nNo Polymarket orders or collateral transfers were submitted. The separate Sepolia test transfer does not fund Polymarket.`,
+        spokenSummary: succeeded ? `Polymarket dry-run complete for ${typeof market?.question === "string" ? market.question : "the selected market"}. No orders were placed.` : details,
+        overallRisk: null,
+        riskScore: null,
+        disclaimer: "Read-only public market snapshot and deterministic quote simulation; not financial advice or an order. No live market execution occurred.",
+      }
+      const completedTasks = wf.tasks.filter((task) => task.status === "completed").length
+      const status = completedTasks === wf.tasks.length ? "completed" : completedTasks > 0 ? "partial" : "failed"
+      await this.finish(wf, status)
+      return
+    }
     const aggTask: Task = {
       id: newId("task"),
       workflowId: wf.id,
@@ -473,12 +543,13 @@ export class Orchestrator {
           wf.agentCalls++
           const depth = 1
           if (depth > cfg.MAX_DELEGATION_DEPTH) throw new AppError("DEPTH_EXCEEDED", "Maximum delegation depth exceeded", 400)
-          return withTimeout(`${agent.name} ${task.type}`, cfg.AGENT_TASK_TIMEOUT_MS, (signal) =>
+          const timeoutMs = task.type === "wallet_transfer" ? cfg.METAMASK_CONFIRMATION_TIMEOUT_MS : cfg.AGENT_TASK_TIMEOUT_MS
+          return withTimeout(`${agent.name} ${task.type}`, timeoutMs, (signal) =>
             agent.execute(fullTask, this.context(wf, signal, depth, dependencies)),
           )
         },
         {
-          retries: cfg.AGENT_MAX_RETRIES,
+          retries: task.type === "wallet_transfer" ? 0 : cfg.AGENT_MAX_RETRIES,
           onRetry: (n, e) =>
             this.trace(wf, { agentId: agent.id, taskId: task.id, action: "task.retry", status: "error", detail: `Attempt ${n} failed (${errorMessage(e)}); retrying` }),
         },

@@ -4,8 +4,8 @@ import { createApp } from "../server/api/app"
 import type { AppConfig } from "../server/config"
 import { FULL_DEMO_COMMAND, makeRuntime } from "./helpers"
 
-async function app(cfg: Partial<Record<keyof AppConfig, string>> = {}) {
-  const { rt, store } = await makeRuntime({ cfg })
+async function app(cfg: Partial<Record<keyof AppConfig, string>> = {}, fetchImpl?: typeof fetch) {
+  const { rt, store } = await makeRuntime({ cfg, fetchImpl })
   return { http: createApp(rt), rt, store }
 }
 
@@ -19,10 +19,10 @@ describe("API", () => {
     expect(modes).toMatchObject({ "0G Inference": "mock", Arkiv: "memory", "World ID": "disabled", "Hedera x402": "disabled" })
   })
 
-  it("lists the three registered agents with their store entity keys", async () => {
+  it("lists the registered agents with their store entity keys", async () => {
     const { http } = await app()
     const res = await request(http).get("/api/agents")
-    expect(res.body.data.map((a: { id: string }) => a.id)).toEqual(["supervisor", "research", "security"])
+    expect(res.body.data.map((a: { id: string }) => a.id)).toEqual(["supervisor", "research", "security", "metamask", "liquidity"])
     expect(res.body.data.every((a: { entityKey: string }) => a.entityKey.startsWith("local:agent"))).toBe(true)
   })
 
@@ -102,6 +102,49 @@ describe("API", () => {
     expect(explorer.entities.length).toBe(2)
 
     const stats = (await request(http).get("/api/runtime/stats")).body.data
-    expect(stats).toMatchObject({ agents: 3, completedTasks: 2, failedTasks: 0, inferenceCalls: 4 })
+    expect(stats).toMatchObject({ agents: 5, completedTasks: 2, failedTasks: 0, inferenceCalls: 4 })
+  })
+
+  it("E2E: Polymarket research and LP quotes run through the API without placing orders", async () => {
+    const question = "Another S&P 500 Company buys Bitcoin by December 31, 2026"
+    const fetchImpl = (async () => new Response(JSON.stringify({
+      events: [{
+        title: "Another S&P 500 Company buys Bitcoin by...?",
+        markets: [{
+          id: "market-42",
+          question,
+          slug: "another-sp500-company-buys-bitcoin-by-december-31-2026",
+          resolutionSource: "https://www.sec.gov/",
+          endDate: "2026-12-31T23:59:00Z",
+          active: true,
+          closed: false,
+          acceptingOrders: true,
+          outcomes: '["Yes", "No"]',
+          outcomePrices: '["0.0855", "0.9145"]',
+          bestBid: 0.07,
+          bestAsk: 0.09,
+          liquidityNum: 1200,
+          volume24hr: 8500,
+        }],
+      }],
+    }), { status: 200, headers: { "content-type": "application/json" } })) as typeof fetch
+    const { http, store } = await app({}, fetchImpl)
+    const response = await request(http).post("/api/orchestrator/execute?wait=true").send({
+      command: `Simulate a Polymarket liquidity plan for "${question}"`,
+      channel: "text",
+    })
+
+    expect(response.status).toBe(201)
+    const workflow = response.body.data
+    expect(workflow.status).toBe("completed")
+    expect(workflow.plan.intent).toBe("prediction_market_simulation")
+    expect(workflow.tasks.map((task: { type: string; status: string }) => [task.type, task.status])).toEqual([
+      ["market_research", "completed"],
+      ["liquidity_simulation", "completed"],
+    ])
+    expect(workflow.finalReport.markdown).toMatch(/Simulation only/)
+    expect(workflow.finalReport.markdown).toMatch(/No Polymarket orders/)
+    expect(workflow.tasks.some((task: { type: string }) => task.type === "wallet_transfer")).toBe(false)
+    expect(await store.listExecutions({ workflowId: workflow.id })).toHaveLength(2)
   })
 })

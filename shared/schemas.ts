@@ -2,7 +2,7 @@ import { z } from "zod"
 
 /* ──────────────────────────── primitives ──────────────────────────── */
 
-export const AgentIdSchema = z.enum(["supervisor", "research", "security"])
+export const AgentIdSchema = z.enum(["supervisor", "research", "security", "metamask", "liquidity"])
 export type AgentId = z.infer<typeof AgentIdSchema>
 
 export const CapabilitySchema = z.enum([
@@ -13,6 +13,9 @@ export const CapabilitySchema = z.enum([
   "source_analysis",
   "security_review",
   "risk_assessment",
+  "wallet_transfer",
+  "market_research",
+  "liquidity_simulation",
 ])
 export type Capability = z.infer<typeof CapabilitySchema>
 
@@ -51,7 +54,7 @@ export type RegisterAgentInput = z.infer<typeof RegisterAgentInputSchema>
 
 /* ──────────────────────────── Task ──────────────────────────── */
 
-export const TaskTypeSchema = z.enum(["research", "security_review", "aggregate"])
+export const TaskTypeSchema = z.enum(["research", "security_review", "wallet_transfer", "market_research", "liquidity_simulation", "aggregate"])
 export type TaskType = z.infer<typeof TaskTypeSchema>
 
 export const TaskStatusSchema = z.enum(["open", "claimed", "running", "completed", "failed", "cancelled"])
@@ -145,7 +148,7 @@ export type InferenceMetadata = z.infer<typeof InferenceMetadataSchema>
 
 /* ──────────────────────────── Plan ──────────────────────────── */
 
-export const IntentSchema = z.enum(["full_audit", "contract_research", "security_review", "general_question"])
+export const IntentSchema = z.enum(["full_audit", "contract_research", "security_review", "wallet_transfer", "prediction_market_simulation", "general_question"])
 export type Intent = z.infer<typeof IntentSchema>
 
 export const PlanStepSchema = z.object({

@@ -4,9 +4,45 @@ import { executionLayers, validatePlan } from "../../server/runtime/planner"
 import { ToolRegistry, AGENT_TOOL_ALLOWLIST } from "../../server/tools/registry"
 import { getSample } from "../../server/tools/samples"
 import { scanContract, summarizeContract } from "../../server/tools/solidity"
+import { parseSepoliaNativeTransfer } from "../../server/agents/wallet-transfer"
+import { isMetaMaskConnectionPrompt } from "../../server/agents/metamask"
 import type { Capability } from "../../shared/schemas"
 
-const ALL: Set<Capability> = new Set(["contract_research", "source_analysis", "security_review", "risk_assessment"])
+const ALL: Set<Capability> = new Set(["contract_research", "source_analysis", "security_review", "risk_assessment", "wallet_transfer", "market_research", "liquidity_simulation"])
+
+describe("wallet transfer parsing", () => {
+  it("parses an explicit Sepolia native ETH transfer without floating-point conversion", () => {
+    expect(parseSepoliaNativeTransfer("Send 0.001 Sepolia ETH to 0x000000000000000000000000000000000000dEaD")).toEqual({
+      recipient: "0x000000000000000000000000000000000000dEaD",
+      amountEth: "0.001",
+      amountWei: "1000000000000000",
+      chainId: 11155111,
+    })
+    expect(parseSepoliaNativeTransfer("Send 0.00123 sepolia eth to this address 0x5c553e27e588b9dE72A76d521b17610A97d45143")).toMatchObject({
+      recipient: "0x5c553e27e588b9dE72A76d521b17610A97d45143",
+      amountEth: "0.00123",
+      amountWei: "1230000000000000",
+    })
+  })
+
+  it("rejects missing networks, malformed addresses, zero value, and excess decimals", () => {
+    expect(() => parseSepoliaNativeTransfer("Send 0.001 ETH to 0x000000000000000000000000000000000000dEaD")).toThrow(/Sepolia/)
+    expect(() => parseSepoliaNativeTransfer("Send 0.001 Sepolia ETH to not-an-address")).toThrow(/address/)
+    expect(() => parseSepoliaNativeTransfer("Send 0 Sepolia ETH to 0x000000000000000000000000000000000000dEaD")).toThrow(/greater than zero/)
+    expect(() => parseSepoliaNativeTransfer("Send 0.0000000000000000001 Sepolia ETH to 0x000000000000000000000000000000000000dEaD")).toThrow(/specify a positive ETH amount/)
+  })
+})
+
+describe("MetaMask connection prompt guard", () => {
+  it("only matches the current origin during account connection, never the transaction stage", () => {
+    const host = "127.0.0.1:49980"
+    const permissionPrompt = `${host} is asking for your approval to review permissions`
+    expect(isMetaMaskConnectionPrompt("connecting", permissionPrompt, host)).toBe(true)
+    expect(isMetaMaskConnectionPrompt("transaction", permissionPrompt, host)).toBe(false)
+    expect(isMetaMaskConnectionPrompt("connecting", "127.0.0.1:49981 is asking for your approval to review permissions", host)).toBe(false)
+    expect(isMetaMaskConnectionPrompt("connecting", `${host} is asking to confirm a transaction`, host)).toBe(false)
+  })
+})
 
 describe("solidity tools", () => {
   it("summarizes structure of the vault sample", () => {
@@ -59,6 +95,23 @@ describe("supervisor planning", () => {
     const plan = heuristicPlan("hello, what can you do?", false)
     expect(plan.intent).toBe("general_question")
     expect(plan.steps).toHaveLength(0)
+  })
+
+  it("routes a valid Sepolia transfer to the wallet agent without requiring contract source", () => {
+    const plan = heuristicPlan("Send 0.001 Sepolia ETH to 0x000000000000000000000000000000000000dEaD", false)
+    expect(plan.intent).toBe("wallet_transfer")
+    expect(plan.steps.map((step) => [step.type, step.capability])).toEqual([["wallet_transfer", "wallet_transfer"]])
+    expect(validatePlan(plan, new Set(["wallet_transfer"]), 1, false)).toMatchObject({ ok: true })
+  })
+
+  it("routes Polymarket LP requests to market research then simulation without contract source", () => {
+    const plan = heuristicPlan('Simulate a Polymarket liquidity plan for "Another S&P 500 Company buys Bitcoin by December 31, 2026"', false)
+    expect(plan.intent).toBe("prediction_market_simulation")
+    expect(plan.steps.map((step) => [step.id, step.type, step.capability, step.dependsOn])).toEqual([
+      ["market-research", "market_research", "market_research", []],
+      ["lp-simulation", "liquidity_simulation", "liquidity_simulation", ["market-research"]],
+    ])
+    expect(validatePlan(plan, new Set(["market_research", "liquidity_simulation"]), 2, false)).toMatchObject({ ok: true })
   })
 
   it("plans independent steps when asked to run in parallel", () => {

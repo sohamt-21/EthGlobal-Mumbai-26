@@ -53,6 +53,85 @@ describe("orchestrator", () => {
     expect(wf.finalReport?.markdown).toMatch(/Research Agent/)
   })
 
+  it("routes Sepolia ETH sends only to the MetaMask agent and fails closed when it is not configured", async () => {
+    const { rt } = await makeRuntime()
+    const wf = await rt.orchestrator.execute(
+      { command: "Send 0.001 Sepolia ETH to 0x000000000000000000000000000000000000dEaD", channel: "text" },
+      initiator,
+    )
+
+    expect(wf.plan?.intent).toBe("wallet_transfer")
+    expect(wf.tasks.map((task) => [task.type, task.assignedAgent, task.status])).toEqual([[
+      "wallet_transfer",
+      "metamask",
+      "failed",
+    ]])
+    expect(wf.inference).toHaveLength(0)
+    expect(wf.finalReport?.markdown).toMatch(/No transaction was submitted/)
+    expect(wf.results[wf.tasks[0].id]?.error?.code).toBe("METAMASK_NOT_CONFIGURED")
+  })
+
+  it("asks for missing transfer details without creating a wallet task", async () => {
+    const { rt } = await makeRuntime()
+    const wf = await rt.orchestrator.execute({ command: "Send 0.001 ETH to a specific address", channel: "text" }, initiator)
+
+    expect(wf.status).toBe("completed")
+    expect(wf.plan?.intent).toBe("general_question")
+    expect(wf.tasks).toHaveLength(0)
+    expect(wf.finalReport?.markdown).toMatch(/Sepolia network.*recipient address/)
+  })
+
+  it("runs Polymarket public research and a persisted dry-run LP plan end to end", async () => {
+    const query = "Another S&P 500 Company buys Bitcoin by December 31, 2026"
+    let requestedUrl = ""
+    const fetchImpl = (async (input: string | URL | Request) => {
+      requestedUrl = String(input)
+      return new Response(JSON.stringify({
+        events: [{
+          title: "Another S&P 500 Company buys Bitcoin by...?",
+          markets: [{
+            id: "market-42",
+            question: query,
+            slug: "another-sp500-company-buys-bitcoin-by-december-31-2026",
+            resolutionSource: "https://www.sec.gov/",
+            endDate: "2026-12-31T23:59:00Z",
+            active: true,
+            closed: false,
+            acceptingOrders: true,
+            outcomes: '["Yes", "No"]',
+            outcomePrices: '["0.0855", "0.9145"]',
+            bestBid: 0.07,
+            bestAsk: 0.09,
+            liquidityNum: 1200,
+            volume24hr: 8500,
+          }],
+        }],
+      }), { status: 200, headers: { "content-type": "application/json" } })
+    }) as typeof fetch
+    const { rt, store } = await makeRuntime({ fetchImpl })
+    const wf = await rt.orchestrator.execute(
+      { command: `Simulate a Polymarket liquidity plan for "${query}"`, channel: "text" },
+      initiator,
+    )
+
+    expect(wf.status).toBe("completed")
+    expect(wf.plan?.intent).toBe("prediction_market_simulation")
+    expect(wf.tasks.map((task) => [task.type, task.assignedAgent, task.status])).toEqual([
+      ["market_research", "research", "completed"],
+      ["liquidity_simulation", "liquidity", "completed"],
+    ])
+    expect(new URL(requestedUrl).pathname).toBe("/public-search")
+    expect(new URL(requestedUrl).searchParams.get("q")).toBe(query)
+    expect(wf.inference).toHaveLength(0)
+    expect(wf.tasks.some((task) => task.type === "wallet_transfer")).toBe(false)
+    const simulation = Object.values(wf.results).find((result) => result.agentId === "liquidity")!
+    expect(simulation.result).toMatchObject({ simulationOnly: true, totalQuoteNotionalCapUsd: 20 })
+    expect((simulation.result.quotes as unknown[])).toHaveLength(4)
+    expect(wf.finalReport?.markdown).toMatch(/Simulation only|no orders were submitted/i)
+    expect(wf.trace.every((trace) => trace.txHash === null)).toBe(true)
+    expect(await store.listExecutions({ workflowId: wf.id })).toHaveLength(2)
+  })
+
   it("runs independent tasks in parallel", async () => {
     const { rt } = await makeRuntime({ inference: new MockInferenceAdapter(150) })
     const wf = await rt.orchestrator.execute({ command: "Run research and security review in parallel on this contract", sampleContractId: "mesh-vault", channel: "text" }, initiator)

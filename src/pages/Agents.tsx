@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { motion } from "motion/react"
-import { Bot, FileCode2, Fingerprint, Loader2, ShieldCheck, Wrench, X } from "lucide-react"
+import { Bot, FileCode2, Fingerprint, Loader2, ShieldCheck, TrendingUp, Wallet, Wrench, X } from "lucide-react"
 import { cn } from "cn"
 import { Button } from "@/components/ui/button"
 import { AGENT_COLOR } from "@/components/Shell"
@@ -9,7 +9,7 @@ import { EnsAgentNamespace } from "@/components/EnsAgentNamespace"
 import { api, ApiError, type AgentView } from "@/lib/api"
 import { useRuntime } from "@/lib/runtime"
 
-const ICON = { supervisor: Bot, research: FileCode2, security: ShieldCheck } as const
+const ICON = { supervisor: Bot, research: FileCode2, security: ShieldCheck, metamask: Wallet, liquidity: TrendingUp } as const
 
 export function AgentsPage() {
   const { agents, identity, refresh } = useRuntime()
@@ -28,7 +28,7 @@ export function AgentsPage() {
   return (
     <div className="grid gap-5">
       <EnsAgentNamespace agents={agents} onNames={updateEnsNames} />
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {agents.map((a, i) => {
           const Icon = ICON[a.id]
           return (

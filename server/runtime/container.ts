@@ -7,6 +7,8 @@ import { MemoryCoordinationStore } from "../adapters/store/memory"
 import type { CoordinationStore } from "../adapters/store/types"
 import { ResearchAgent } from "../agents/research"
 import { SecurityAgent } from "../agents/security"
+import { MetaMaskAgent } from "../agents/metamask"
+import { LiquiditySimulationAgent } from "../agents/prediction-market"
 import { SupervisorAgent } from "../agents/supervisor"
 import type { AppConfig } from "../config"
 import { AppError } from "../lib/errors"
@@ -56,7 +58,7 @@ export async function createRuntime(
   const supervisor = new SupervisorAgent()
   const bus = new AgentMessageBus(supervisor.id)
   const tools = new ToolRegistry(AGENT_TOOL_ALLOWLIST)
-  const registry = new AgentRegistry(store, [supervisor, new ResearchAgent(), new SecurityAgent()], `http://localhost:${cfg.API_PORT}`)
+  const registry = new AgentRegistry(store, [supervisor, new ResearchAgent(overrides.fetchImpl ?? fetch), new SecurityAgent(), new MetaMaskAgent(cfg), new LiquiditySimulationAgent()], `http://localhost:${cfg.API_PORT}`)
   await registry.bootstrap()
   const identity = new IdentityService(cfg, store, overrides.fetchImpl)
   const orchestrator = new Orchestrator({ cfg, store, inference, registry, bus, tools, supervisor })

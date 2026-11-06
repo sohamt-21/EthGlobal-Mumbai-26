@@ -6,10 +6,11 @@ Run: `npm test` (unit/API/E2E, mocks + in-memory store) · `npm run test:integra
 
 | Suite | Tests | Result |
 |---|---|---|
-| `tests/unit/tools-planner.test.ts` — static scanner, tool allowlist, planner routing, plan validation, parallel layering | 11 | ✅ pass |
-| `tests/unit/adapters.test.ts` — 0G response parsing/headers/retryability, store claim semantics, World ID verify/replay/expiry/dev-bypass labelling | 10 | ✅ pass |
-| `tests/orchestrator.test.ts` — sequential, parallel, selective routing, retries, failure recovery, planner fallback, output validation, call budget, inline source | 10 | ✅ pass |
-| `tests/api.e2e.test.ts` — health/modes, agent discovery, validation envelope, protected registration, human-gated workflows, external worker claim/complete with ownership, **full research→security E2E through HTTP** | 7 | ✅ pass |
+| `tests/unit/tools-planner.test.ts` — static scanner, tool allowlist, planner routing, Polymarket market-plan routing, wallet transfer parsing, plan validation | 16 | ✅ pass |
+| `tests/unit/adapters.test.ts` — 0G response parsing/headers/retryability, store claim semantics, localhost-only MetaMask CDP config, World ID verify/replay/expiry/dev-bypass labelling | 11 | ✅ pass |
+| `tests/orchestrator.test.ts` — sequential, parallel, selective routing, Polymarket research→LP simulation, wallet routing/fail-closed behavior, retries, failure recovery, planner fallback, call budget | 13 | ✅ pass |
+| `tests/api.e2e.test.ts` — health/modes, agent discovery, validation envelope, protected registration, human-gated workflows, external worker ownership, research/security and Polymarket simulation E2E | 8 | ✅ pass |
+| `tests/ensv2.test.ts` — hierarchy construction, duplicate validation, per-agent text keys, transfer permissions | 4 | ✅ pass |
 | `tests/integration/live.test.ts` — real 0G call, real Arkiv create/query/claim, full live workflow | 3 | ⏭ skipped (no credentials in this environment) |
 
 `tsc` strict typecheck: frontend (`tsconfig.app.json`) and server/tests (`tsconfig.server.json`) clean. `vite build` succeeds.
@@ -18,9 +19,11 @@ Run: `npm test` (unit/API/E2E, mocks + in-memory store) · `npm run test:integra
 
 | Requirement | Test |
 |---|---|
-| Agent registration / discovery | `MemoryCoordinationStore › registers and discovers…`, `API › lists the three registered agents…`, `protects agent registration…` |
+| Agent registration / discovery | `MemoryCoordinationStore › registers and discovers…`, `API › lists the registered agents…`, `protects agent registration…` |
 | Task creation / claiming | `MemoryCoordinationStore › creates, queries, claims once…`, `API › external worker…` |
 | Agent routing / Supervisor planning | `supervisor planning › *`, `orchestrator › only invokes the agents the request needs` |
+| Wallet transfers | `wallet transfer parsing` validates precision/address/network; `orchestrator` verifies Sepolia routing, MetaMask configuration failure, and incomplete-prompt handling |
+| Prediction-market LP demo | `orchestrator` and `API` tests verify public Gamma market parsing, persisted research dependency, capped simulated quotes, and no wallet/order side effects |
 | Sequential execution | `orchestrator › runs research → security sequentially…` |
 | Parallel execution | `orchestrator › runs independent tasks in parallel` |
 | Failed agent recovery | `orchestrator › recovers from a failed agent…`, `retries transient inference failures` |

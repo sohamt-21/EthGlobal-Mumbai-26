@@ -1,0 +1,8 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^npx tsx -e 'import \\{ strict as assert \\} from \"node:assert\"; import \\{ parseSepoliaNativeTransfer \\} from \"\\./server/agents/wallet-transfer\\.ts\"; const tx = parseSepoliaNativeTransfer\\(\"Send 0\\.00123 sepolia eth to this address 0x5c553e27e588b9dE72A76d521b17610A97d45143\"\\); assert\\.equal\\(tx\\?\\.amountWei, \"1230000000000000\"\\); assert\\.equal\\(tx\\?\\.recipient, \"0x5c553e27e588b9dE72A76d521b17610A97d45143\"\\); console\\.log\\(\"reported prompt parses successfully\"\\)'$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}

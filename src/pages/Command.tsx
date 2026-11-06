@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
-import { ArrowUp, Bot, CheckCircle2, CircleDashed, FileCode2, Loader2, Mic, MicOff, ShieldCheck, Sparkles, Square, Volume2, VolumeX, Workflow as WorkflowIcon, XCircle } from "lucide-react"
+import { ArrowUp, Bot, CheckCircle2, CircleDashed, FileCode2, Loader2, Mic, MicOff, ShieldCheck, Sparkles, Square, TrendingUp, Volume2, VolumeX, Wallet, Workflow as WorkflowIcon, XCircle } from "lucide-react"
 import { cn } from "cn"
 import type { Workflow } from "../../shared/schemas"
 import { Button } from "@/components/ui/button"
@@ -15,11 +15,14 @@ import { useSpeech } from "@/lib/speech"
 export const DEMO_COMMAND =
   "Start a multi-agent workflow. Ask the research agent to analyse this smart contract and ask the security agent to review the findings. Return a combined report."
 
+const TRANSFER_COMMAND = "Send 0.00123 sepolia eth to this address 0x5c553e27e588b9dE72A76d521b17610A97d45143"
+
 const SUGGESTIONS = [
   DEMO_COMMAND,
   "Explain what this contract does and who controls it.",
   "Is this token a rug pull risk? Only run a security review.",
   "Run research and security review in parallel on this contract.",
+  'Simulate a Polymarket liquidity plan for "Another S&P 500 Company buys Bitcoin by December 31, 2026"',
 ]
 
 export function CommandPage({ onOpenTrace }: { onOpenTrace: (id: string) => void }) {
@@ -29,7 +32,7 @@ export function CommandPage({ onOpenTrace }: { onOpenTrace: (id: string) => void
   const [sampleId, setSampleId] = useState<string>("mesh-vault")
   const [customSource, setCustomSource] = useState("")
   const [showSource, setShowSource] = useState(false)
-  const [command, setCommand] = useState(DEMO_COMMAND)
+  const [command, setCommand] = useState(TRANSFER_COMMAND)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -228,7 +231,7 @@ export function CommandPage({ onOpenTrace }: { onOpenTrace: (id: string) => void
                     return (
                       <div key={a.id} className="flex items-center gap-2.5 rounded-lg border border-white/[0.05] bg-white/[0.02] px-2.5 py-2">
                         <span className="grid size-7 place-items-center rounded-md" style={{ background: `color-mix(in oklch, ${AGENT_COLOR[a.id]} 16%, transparent)`, color: AGENT_COLOR[a.id] }}>
-                          {a.id === "security" ? <ShieldCheck className="size-3.5" /> : a.id === "research" ? <FileCode2 className="size-3.5" /> : <Bot className="size-3.5" />}
+                          {a.id === "security" ? <ShieldCheck className="size-3.5" /> : a.id === "research" ? <FileCode2 className="size-3.5" /> : a.id === "metamask" ? <Wallet className="size-3.5" /> : a.id === "liquidity" ? <TrendingUp className="size-3.5" /> : <Bot className="size-3.5" />}
                         </span>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5 text-[12px] font-medium">

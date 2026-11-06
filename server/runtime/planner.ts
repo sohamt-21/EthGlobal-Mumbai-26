@@ -5,6 +5,9 @@ const TYPE_FOR_CAPABILITY: Partial<Record<Capability, TaskType>> = {
   source_analysis: "research",
   security_review: "security_review",
   risk_assessment: "security_review",
+  wallet_transfer: "wallet_transfer",
+  market_research: "market_research",
+  liquidity_simulation: "liquidity_simulation",
 }
 
 export type PlanValidation = { ok: true; plan: ExecutionPlan } | { ok: false; reason: string }
@@ -20,7 +23,30 @@ export function validatePlan(plan: ExecutionPlan, available: Set<Capability>, ma
   if (plan.steps.length > maxSteps) return { ok: false, reason: `Plan has ${plan.steps.length} steps; max is ${maxSteps}` }
   if (plan.intent === "general_question" && plan.steps.length > 0) return { ok: false, reason: "general_question plans must not delegate" }
   if (plan.intent !== "general_question" && plan.steps.length === 0) return { ok: false, reason: `${plan.intent} plan has no steps` }
-  if (plan.steps.length > 0 && !hasSource) return { ok: false, reason: "Delegated analysis requires contract source" }
+  const marketSteps = plan.steps.filter((step) => step.capability === "market_research" || step.capability === "liquidity_simulation")
+  if (plan.steps.some((step) => step.capability !== "wallet_transfer" && step.capability !== "market_research" && step.capability !== "liquidity_simulation") && !hasSource) {
+    return { ok: false, reason: "Delegated analysis requires contract source" }
+  }
+  const walletSteps = plan.steps.filter((step) => step.capability === "wallet_transfer")
+  if (plan.intent === "wallet_transfer" && walletSteps.length !== 1) {
+    return { ok: false, reason: "wallet_transfer plans must contain exactly one wallet transfer step" }
+  }
+  if (plan.intent !== "wallet_transfer" && walletSteps.length > 0) {
+    return { ok: false, reason: "Wallet transfers require the wallet_transfer intent" }
+  }
+  if (plan.intent === "prediction_market_simulation") {
+    if (plan.steps.length !== 2 || marketSteps.length !== 2 || marketSteps.filter((step) => step.capability === "market_research").length !== 1 || marketSteps.filter((step) => step.capability === "liquidity_simulation").length !== 1) {
+      return { ok: false, reason: "prediction_market_simulation plans require one market research step and one liquidity simulation step" }
+    }
+    if (walletSteps.length > 0) return { ok: false, reason: "Prediction-market simulation plans cannot submit wallet transfers" }
+    const researchStep = marketSteps.find((step) => step.capability === "market_research")!
+    const simulationStep = marketSteps.find((step) => step.capability === "liquidity_simulation")!
+    if (!simulationStep.dependsOn.includes(researchStep.id)) {
+      return { ok: false, reason: "Liquidity simulation must depend on market research" }
+    }
+  } else if (marketSteps.length > 0) {
+    return { ok: false, reason: "Market tasks require the prediction_market_simulation intent" }
+  }
   const seen = new Set<string>()
   for (const step of plan.steps) {
     if (seen.has(step.id)) return { ok: false, reason: `Duplicate step id ${step.id}` }

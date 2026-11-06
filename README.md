@@ -58,6 +58,28 @@ npm run dev
 
 ENSv2 uses the connected browser wallet rather than server environment keys. Open **Agents**, choose Sepolia or Ethereum Mainnet, connect MetaMask, and enter a parent `.eth` name that the connected account owns on ENSv2. The app creates the `voxmesh` namespace, a Supervisor subregistry, and unique Research/Security subnames. It writes text records through an ENSv2 Permissioned Resolver and can grant an address permission to update only one agent's endpoint key. New names default to one-year expiry and are non-transferable; both options can be changed before creation. The wallet must have network gas, and each transaction is confirmed in the wallet.
 
+### MetaMask transfer agent
+
+The Command page accepts explicit native Sepolia ETH requests such as `Send 0.001 Sepolia ETH to 0x...`. For a real Chrome window with MetaMask installed, start a dedicated Chrome profile with a localhost debugging port:
+
+```bash
+open -na "Google Chrome" --args --remote-debugging-port=9222 --user-data-dir="$HOME/.voxmesh/metamask-chrome"
+```
+
+In that Chrome profile, install MetaMask from the Chrome Web Store and set it up with a test wallet funded only with Sepolia test ETH. Add `METAMASK_CDP_ENDPOINT=http://127.0.0.1:9222` to `.env`, then restart the API. Keep that Chrome window open while using the Command page. The agent attaches to it and opens the transfer page in a new tab; it does not close Chrome. Chrome requires a non-default user-data directory for remote debugging, so this is a separate profile from your regular Chrome profile. The debugging endpoint must remain local and must not be exposed to a network.
+
+Without `METAMASK_CDP_ENDPOINT`, the agent can use Playwright Chromium instead: install its browser with `npx playwright install chromium`, set `METAMASK_EXTENSION_PATH` to an unpacked extension directory, and use `METAMASK_PROFILE_PATH` (defaults to `~/.voxmesh/metamask-profile`) for its persistent profile.
+
+In either mode the agent requests a switch to Sepolia and verifies the active chain. While `eth_requestAccounts` is pending, it may click Connect/review-permissions controls only on MetaMask’s prompt for that exact temporary localhost origin. It never enters a wallet password. Approve any network-change prompt and the final transaction yourself after reviewing the network, recipient, and amount. The agent never confirms or signs the transaction and does not retry wallet requests. A returned transaction hash means submitted, not confirmed on-chain. The workflow fails closed if MetaMask is unavailable, the active network is not Sepolia, or the wallet request is rejected.
+
+### Prediction-market LP demo
+
+Run `Simulate a Polymarket liquidity plan for "Another S&P 500 Company buys Bitcoin by December 31, 2026"` from Command. The Research Agent reads a matching open market using Polymarket's free, public Gamma search API; the Liquidity Simulation Agent calculates four two-sided quotes capped at $5 each ($20 total). This is a point-in-time dry run: it does not call Polymarket's order API, use collateral, or submit orders. Any Sepolia test transfer is a separate demo action and is not Polymarket funding. The 8004scan agents supplied for this feature had no callable service, so the workflow uses the public market-data API and a local simulator instead.
+
+### Prediction-market LP demo
+
+In the Command page, run `Simulate a Polymarket liquidity plan for "Another S&P 500 Company buys Bitcoin by December 31, 2026"`. The Research Agent reads the matching open market from Polymarket’s public Gamma search API; the Liquidity Simulation Agent uses that point-in-time snapshot to calculate four two-sided quotes capped at $5 each ($20 total). No Polymarket account, order endpoint, collateral, or paid Otto x402 call is used. The supplied Otto 8004 agent listings are not callable services. This workflow is strictly a dry run: it creates no orders and does not invoke the wallet agent. Any Sepolia transfer is a separate test and is not Polymarket funding.
+
 Check connectivity:
 
 ```bash
@@ -72,14 +94,14 @@ npm run test:integration
 
 ## Demo script (≈3 minutes)
 
-1. **Runtime** page — show the three integrations and their modes; agents registered in the coordination store.
+1. **Runtime** page — show the integrations and their modes; agents registered in the coordination store.
 2. **Command** page — keep `MeshVault.sol` selected, press the mic and say (or just click **Run workflow**):
    > "Start a multi-agent workflow. Ask the research agent to analyse this smart contract and ask the security agent to review the findings. Return a combined report."
 3. Watch the right rail: Supervisor plan (`research → security`), task entity keys appear, Research Agent claims → runs tools → 0G inference → persists; Security Agent claims, **loads the research result from Arkiv**, re-scans independently, runs inference; Supervisor aggregates. The report is spoken back.
 4. **Execution Trace** — open the workflow: tasks with Arkiv task/result entity keys + tx hashes, 0G request IDs (provider, TEE, cost), agent messages. Click **Query** under *Verify against coordination store* to re-read the tasks/results from Arkiv.
 5. **Arkiv Explorer** — browse `Tasks`, `Executions`, `Messages`, `Workflows`: attributes, owner, expiry block, decoded payload.
 6. **Identity & Trust** — try *Register agent* on the Agent Registry without verifying (denied, logged), verify with World ID, retry (ownership bound to your nullifier-derived subject, attestation entity written).
-7. Variations: "Explain what this contract does" (research only), "Is this a rug pull? Only a security review" (security only), "Run research and security review in parallel" (parallel layer), paste your own Solidity.
+7. Variations: "Explain what this contract does" (research only), "Is this a rug pull? Only a security review" (security only), "Run research and security review in parallel" (parallel layer), paste your own Solidity, or request a Sepolia ETH transfer and confirm it in MetaMask.
 
 ## Scripts
 

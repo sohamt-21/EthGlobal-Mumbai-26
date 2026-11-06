@@ -6,6 +6,13 @@ import { testConfig } from "../../server/config"
 import { isTransient } from "../../server/lib/errors"
 import type { Task } from "../../shared/schemas"
 
+describe("MetaMask CDP configuration", () => {
+  it("accepts only localhost debugging endpoints", () => {
+    expect(testConfig({ METAMASK_CDP_ENDPOINT: "http://127.0.0.1:9222" }).METAMASK_CDP_ENDPOINT).toBe("http://127.0.0.1:9222")
+    expect(() => testConfig({ METAMASK_CDP_ENDPOINT: "http://example.com:9222" })).toThrow(/localhost HTTP endpoint/)
+  })
+})
+
 /* ───────────── 0G adapter (mocked HTTP — proves parsing, NOT live connectivity) ───────────── */
 
 function zgFetch(status: number, body: unknown, seen?: { url?: string; init?: RequestInit }): typeof fetch {

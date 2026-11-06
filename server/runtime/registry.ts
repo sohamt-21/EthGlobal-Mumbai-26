@@ -22,6 +22,8 @@ const LEGACY_ENS_LABELS: Record<AgentId, string> = {
   supervisor: "supervisor.voxmesh.eth",
   research: "research.voxmesh.eth",
   security: "security.voxmesh.eth",
+  metamask: "metamask.voxmesh.eth",
+  liquidity: "liquidity.voxmesh.eth",
 }
 
 /**

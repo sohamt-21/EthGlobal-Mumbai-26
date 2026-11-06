@@ -10,6 +10,13 @@ const optionalString = z
   .optional()
   .transform((v) => (v && v.trim().length > 0 ? v.trim() : undefined))
 
+const optionalLocalEndpoint = optionalString.pipe(
+  z.string().url().optional().refine(
+    (value) => !value || (new URL(value).protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(new URL(value).hostname)),
+    "must be a localhost HTTP endpoint",
+  ),
+)
+
 const ConfigSchema = z.object({
   API_PORT: z.coerce.number().int().default(8787),
   CORS_ORIGIN: z.string().default("http://localhost:5173"),
@@ -19,6 +26,10 @@ const ConfigSchema = z.object({
   MAX_DELEGATION_DEPTH: z.coerce.number().int().min(1).max(5).default(2),
   AGENT_TASK_TIMEOUT_MS: z.coerce.number().int().min(1000).default(90_000),
   AGENT_MAX_RETRIES: z.coerce.number().int().min(0).max(5).default(2),
+  METAMASK_EXTENSION_PATH: optionalString,
+  METAMASK_PROFILE_PATH: optionalString,
+  METAMASK_CDP_ENDPOINT: optionalLocalEndpoint,
+  METAMASK_CONFIRMATION_TIMEOUT_MS: z.coerce.number().int().min(30_000).default(300_000),
 
   INFERENCE_MODE: z.enum(["auto", "zerog", "mock"]).default("auto"),
   ZG_API_KEY: optionalString,

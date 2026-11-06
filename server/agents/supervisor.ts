@@ -14,12 +14,14 @@ import { ANALYSIS_DISCLAIMER, heuristicAggregate } from "./heuristics"
 const PLAN_SYSTEM = `You are the VoxMesh Supervisor. You plan multi-agent workflows. Available specialist capabilities:
 - "contract_research" (type "research"): Research Agent analyses supplied Solidity source.
 - "security_review" (type "security_review"): Security Agent reviews source + research output for risks.
+- "wallet_transfer" (type "wallet_transfer"): MetaMask Agent requests an explicitly specified Sepolia native ETH transfer; the user must approve or reject in MetaMask.
 Rules: only include steps the user actually needs. If the user wants both research and security, the security step
 depends on the research step unless the user asks for them in parallel/independently. If the request is not about a
-contract, return no steps and answer directly in "directAnswer". Never include more than 2 steps.
-Reply with ONLY JSON: {"intent": "full_audit"|"contract_research"|"security_review"|"general_question",
-"reasoning": string (<= 50 words), "steps": [{"id": "research"|"security", "type": "research"|"security_review",
-"capability": "contract_research"|"security_review", "description": string, "dependsOn": string[]}], "directAnswer": string|null}`
+contract, return no steps and answer directly in "directAnswer". Wallet transfers must have exactly one wallet_transfer step
+and must never be combined with other steps. Never include more than 2 steps.
+Reply with ONLY JSON: {"intent": "full_audit"|"contract_research"|"security_review"|"wallet_transfer"|"general_question",
+"reasoning": string (<= 50 words), "steps": [{"id": "research"|"security"|"wallet-transfer", "type": "research"|"security_review"|"wallet_transfer",
+"capability": "contract_research"|"security_review"|"wallet_transfer", "description": string, "dependsOn": string[]}], "directAnswer": string|null}`
 
 const AGG_SYSTEM = `You are the VoxMesh Supervisor aggregating specialist outputs into a final report for the user.
 Use only facts present in the inputs. Include the risk level and the top findings. State clearly this is static analysis, not an audit.

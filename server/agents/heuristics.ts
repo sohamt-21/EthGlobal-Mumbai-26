@@ -8,6 +8,7 @@ import type {
   StaticSignal,
 } from "../../shared/schemas"
 import type { ContractSummary } from "../tools/solidity"
+import { isNativeTransferIntent, parseSepoliaNativeTransfer } from "./wallet-transfer"
 
 /**
  * Deterministic logic shared by (a) the clearly-labelled mock inference adapter and
@@ -23,8 +24,56 @@ const SEVERITY_ORDER: Severity[] = ["critical", "high", "medium", "low", "info"]
 export const maxSeverity = (items: Severity[]): Severity =>
   items.length === 0 ? "info" : SEVERITY_ORDER[Math.min(...items.map((s) => SEVERITY_ORDER.indexOf(s)))]
 
+export function isPredictionMarketIntent(command: string): boolean {
+  return /\bpolymarket\b|\bprediction market\b|\bliquidity provider\b|\bmarket making\b/i.test(command)
+}
+
 export function heuristicPlan(command: string, hasSource: boolean): ExecutionPlan {
   const c = command.toLowerCase()
+  const transferIntent = isNativeTransferIntent(command)
+  if (transferIntent) {
+    try {
+      const transfer = parseSepoliaNativeTransfer(command)
+      if (transfer) {
+        return {
+          intent: "wallet_transfer",
+          reasoning: "A native ETH transfer was explicitly requested; MetaMask will display the exact Sepolia transaction for user approval.",
+          steps: [{ id: "wallet-transfer", type: "wallet_transfer", capability: "wallet_transfer", description: `Request ${transfer.amountEth} Sepolia ETH to ${transfer.recipient} through MetaMask.`, dependsOn: [] }],
+          directAnswer: null,
+        }
+      }
+    } catch (error) {
+      return {
+        intent: "general_question",
+        reasoning: "The transfer request is incomplete or invalid and cannot be delegated to a wallet.",
+        steps: [],
+        directAnswer: error instanceof Error ? error.message : "Specify a valid Sepolia ETH transfer.",
+      }
+    }
+  }
+  if (isPredictionMarketIntent(command)) {
+    return {
+      intent: "prediction_market_simulation",
+      reasoning: "Use public Polymarket market data to research one active market, then produce a capped, simulation-only liquidity quote plan. No orders or funding transfers are submitted.",
+      steps: [
+        {
+          id: "market-research",
+          type: "market_research",
+          capability: "market_research",
+          description: `Read the current public Polymarket market snapshot relevant to: ${command.slice(0, 300)}`,
+          dependsOn: [],
+        },
+        {
+          id: "lp-simulation",
+          type: "liquidity_simulation",
+          capability: "liquidity_simulation",
+          description: "Calculate bounded two-sided quotes and risks from the researched market snapshot; do not place orders.",
+          dependsOn: ["market-research"],
+        },
+      ],
+      directAnswer: null,
+    }
+  }
   const wantsResearch = /research|analy[sz]|inspect|explain|summar|understand|what does/.test(c)
   const wantsSecurity = /secur|risk|vulnerab|audit|review|safe|scam|rug|exploit|finding/.test(c)
   const mentionsContract = /contract|solidity|token|vault|\.sol\b|0x[a-f0-9]{40}/.test(c)

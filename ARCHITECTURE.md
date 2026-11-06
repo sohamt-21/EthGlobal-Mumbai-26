@@ -18,8 +18,11 @@
  │  Orchestrator (bounded DAG executor)                                       │
  │    ├─ SupervisorAgent  plan() ── LLM proposes ─► validatePlan() decides    │
  │    │                   execute(aggregate)                                  │
- │    ├─ ResearchAgent    tools: solidity.summarize, solidity.static_scan     │
- │    └─ SecurityAgent    tools: solidity.static_scan (independent re-check)  │
+ │    ├─ ResearchAgent    Solidity tools + public Polymarket Gamma reads      │
+ │    ├─ SecurityAgent    tools: solidity.static_scan (independent re-check)  │
+ │    ├─ LiquidityAgent   deterministic quotes; simulation only                │
+ │    ├─ LiquidityAgent   deterministic quotes; simulation only                │
+ │    └─ MetaMaskAgent    Playwright → visible Chrome → user-approved send    │
  │  AgentMessageBus (Supervisor–Worker topology, correlation ids)             │
  │  AgentRegistry (metadata in store, runtime status in memory)               │
  │  ToolRegistry (per-agent allowlist, deterministic tools only)              │
@@ -71,7 +74,8 @@ or message each other; only the Supervisor delegates.
 1. **Intake** — command (voice transcript or text) + contract source (sample, pasted, or inline in the command).
 2. **Plan** — Supervisor calls 0G for a JSON plan → Zod parse → `validatePlan()` (capabilities must be offered by
    agents discovered from the store, capability↔type match, no delegated aggregation, deps reference earlier steps,
-   ≤ call budget, source required). Invalid → deterministic planner, traced as `plan.fallback`.
+   ≤ call budget, source required for contract analysis). Explicit Sepolia transfers and Polymarket simulations use
+   deterministic plans; market simulation does not require contract source.
 3. **Delegate** — for each step: discover an agent by capability (registry read from the store), build a `Task`,
    and create all task entities + `task.delegate` message entities in **one Arkiv batch transaction**.
 4. **Execute DAG** — `executionLayers()` groups steps; steps in a layer run in parallel (`Promise.all`).
@@ -88,6 +92,28 @@ or message each other; only the Supervisor delegates.
    validated output and the static-analysis disclaimer is mandatory.
 6. **Record** — workflow summary entity (task keys, inference request IDs, risk) written to the store.
 7. **Respond** — SSE pushes trace + workflow snapshots; the UI renders the report and speaks `spokenSummary`.
+
+Wallet transfers use one `wallet_transfer` task and skip analysis aggregation. In preferred CDP mode, the MetaMask
+agent attaches to a user-started local Chrome session that already has MetaMask installed, opens a temporary transfer
+tab, verifies the active Sepolia chain, and requests `eth_sendTransaction` through the injected provider. It closes
+only its tab and leaves Chrome/profile state intact. The CDP endpoint is restricted to localhost. A Playwright-managed
+Chromium profile with an unpacked extension remains available as fallback. The agent may accept the Connect/review-
+permissions prompt only for that exact localhost origin while `eth_requestAccounts` is pending; it never enters wallet
+passwords. The user must approve network changes and the final transaction in MetaMask. Wallet tasks have no automatic
+retries, and a returned hash records submission only, not on-chain confirmation. The server never receives a seed phrase or signing key.
+
+Prediction-market prompts create dependent `market_research → liquidity_simulation` tasks and skip LLM aggregation.
+The Research Agent queries Polymarket's public Gamma API and persists an open market snapshot; the Liquidity Simulation
+Agent consumes that stored result and computes fixed-cap two-sided quotes. It has no order-placement adapter, no
+wallet access, and always returns `simulationOnly: true`. Sepolia test transfers are separate and never interpreted
+as Polymarket collateral.
+
+Prediction-market demo prompts use a deterministic two-step plan: the Research Agent reads a matching open market
+from Polymarket's public Gamma search API; the Liquidity Simulation Agent consumes the persisted research result and
+calculates capped two-sided quotes. It never calls an order endpoint. The workflow reports the source URL, snapshot
+prices, quote caps and risks without an LLM-generated probability. Sepolia test transfers are separate and are not
+Polymarket collateral. The 8004scan agents supplied for this demo had no active callable service, so no external
+trading agent is invoked.
 
 Statuses: workflow `planning → running → completed | partial | failed`; task `open → claimed → running → completed | failed | cancelled`.
 

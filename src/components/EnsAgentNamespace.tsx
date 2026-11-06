@@ -191,7 +191,7 @@ export function EnsAgentNamespace({ agents, onNames }: { agents: AgentView[]; on
       </div>
 
       <div className="grid gap-1 text-[11px] leading-relaxed text-muted-foreground">
-        <p>Parent must already exist on ENSv2. The connected account must own it or have permission to attach or register subnames. The tree is parent name → voxmesh namespace → supervisor → research and security.</p>
+        <p>Parent must already exist on ENSv2. The connected account must own it or have permission to attach or register subnames. The tree is parent name → voxmesh namespace → supervisor → registered agents.</p>
         <p>Names are non-transferable by default, revocable by their registry owner, and expire after one year unless “No expiry” is selected. Existing names keep their original expiry and transfer settings.</p>
         <p>Each agent has separate records. Resolver permissions are delegated by text key, so a worker can be limited to its own endpoint key. Transactions require network gas.</p>
       </div>
