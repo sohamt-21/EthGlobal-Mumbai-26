@@ -1,0 +1,11 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+html,body{margin:0;background:transparent}
+.lock{display:inline-flex;align-items:center;gap:44px;padding:60px 80px;font-family:"Inter",-apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;
+  font-size:200px;font-weight:750;letter-spacing:-0.035em;line-height:1}
+.lock img{width:300px;height:300px}
+</style></head><body><div class="lock" id="lock"><img id="m">VoxMesh</div>
+<script>
+const theme=new URLSearchParams(location.search).get("on")
+document.getElementById("m").src= theme==="light" ? "voxmesh-mark-on-light.svg" : "voxmesh-mark.svg"
+document.getElementById("lock").style.color= theme==="light" ? "#15151d" : "#eeedf5"
+</script></body></html>

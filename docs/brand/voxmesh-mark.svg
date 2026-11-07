@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <title>VoxMesh mark</title>
+  <defs>
+    <linearGradient id="vx" x1="96" y1="96" x2="416" y2="416" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#a48bff"/>
+      <stop offset="0.55" stop-color="#6b97ff"/>
+      <stop offset="1" stop-color="#57d0f2"/>
+    </linearGradient>
+  </defs>
+  <!-- mesh: the waveform's peaks joined into a network hexagon -->
+  <path d="M116 206 L186 146 L256 96 L326 146 L396 206 M116 306 L186 366 L256 416 L326 366 L396 306"
+        fill="none" stroke="url(#vx)" stroke-width="13" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/>
+  <!-- voice waveform -->
+  <g stroke="url(#vx)" stroke-width="38" stroke-linecap="round">
+    <line x1="116" y1="206" x2="116" y2="306"/>
+    <line x1="186" y1="146" x2="186" y2="366"/>
+    <line x1="256" y1="96" x2="256" y2="416"/>
+    <line x1="326" y1="146" x2="326" y2="366"/>
+    <line x1="396" y1="206" x2="396" y2="306"/>
+  </g>
+  <!-- agent nodes -->
+  <g fill="#ffffff">
+    <circle cx="116" cy="206" r="9"/><circle cx="116" cy="306" r="9"/>
+    <circle cx="186" cy="146" r="9"/><circle cx="186" cy="366" r="9"/>
+    <circle cx="256" cy="96" r="9"/><circle cx="256" cy="416" r="9"/>
+    <circle cx="326" cy="146" r="9"/><circle cx="326" cy="366" r="9"/>
+    <circle cx="396" cy="206" r="9"/><circle cx="396" cy="306" r="9"/>
+  </g>
+</svg>

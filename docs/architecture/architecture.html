@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>VoxMesh Architecture</title>
+<style>
+  :root {
+    --bg: #0e0f15; --panel: #171822; --panel2: #1d1e2a; --line: #2c2d3b; --line2: #3a3b4d;
+    --text: #eeedf5; --muted: #a09fb2; --faint: #6f6e82;
+    --violet: #a48bff; --blue: #6b97ff; --rose: #ff7f97; --amber: #f3c463; --green: #4fd8a4; --cyan: #57d0f2; --slate: #b8b7c9;
+    --arrow: #7d7c94;
+  }
+  .light {
+    --bg: #ffffff; --panel: #f6f6fb; --panel2: #eeeef6; --line: #dcdce8; --line2: #c9c9d8;
+    --text: #15151d; --muted: #565669; --faint: #8a8a9c;
+    --violet: #6a4ce0; --blue: #2f64d9; --rose: #d0405e; --amber: #b07a0c; --green: #138a5f; --cyan: #0b84a8; --slate: #5a5a70;
+    --arrow: #9a9ab0;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); }
+  body { width: 1920px; height: 1080px; overflow: hidden; color: var(--text);
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
+  #canvas { position: relative; width: 1920px; height: 1080px; }
+  .abs { position: absolute; }
+  .mono { font-family: "SF Mono", ui-monospace, Menlo, monospace; }
+
+  /* header */
+  .title { left: 40px; top: 32px; }
+  .title h1 { font-size: 38px; font-weight: 750; letter-spacing: -0.02em; }
+  .title h1 .grad { background: linear-gradient(90deg, var(--violet), var(--blue) 55%, var(--cyan)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .title p { font-size: 17px; color: var(--muted); margin-top: 4px; }
+  .legend { right: 40px; top: 44px; display: flex; gap: 22px; font-size: 14px; color: var(--muted); align-items: center; }
+  .legend span { display: inline-flex; align-items: center; gap: 8px; }
+  .legend i { display: inline-block; width: 34px; height: 0; border-top: 2px solid var(--arrow); }
+  .legend i.dash { border-top-style: dashed; }
+  .legend b { display: inline-block; width: 12px; height: 12px; border-radius: 3px; border: 1.5px solid var(--line2); background: var(--panel2); }
+
+  /* zones */
+  .zone { border: 1.5px solid var(--line); border-radius: 22px; background: color-mix(in oklab, var(--panel) 55%, transparent); }
+  .zlabel { position: absolute; top: -13px; left: 20px; padding: 0 10px; background: var(--bg); font-size: 13px; font-weight: 700;
+    letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); }
+
+  .card { position: absolute; border: 1.5px solid var(--line); border-radius: 14px; background: var(--panel); padding: 14px 16px; }
+  .card h3 { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; display: flex; align-items: center; gap: 9px; }
+  .card p { font-size: 14.5px; line-height: 1.38; color: var(--muted); margin-top: 6px; }
+  .card .tag { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; color: var(--faint); margin-top: 8px; }
+  .dot { width: 11px; height: 11px; border-radius: 50%; flex: none; }
+  .accent { border-top-width: 4px; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .chip { font-size: 12.5px; padding: 4px 9px; border-radius: 99px; background: var(--panel2); border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+
+  /* lifecycle */
+  .step { position: absolute; top: 950px; height: 92px; width: 228px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--panel); padding: 12px 14px; }
+  .step .n { font-size: 12px; font-weight: 800; color: var(--violet); letter-spacing: 0.08em; }
+  .step h4 { font-size: 16.5px; font-weight: 700; margin-top: 2px; }
+  .step p { font-size: 13px; color: var(--muted); margin-top: 3px; line-height: 1.3; }
+
+  svg#wires { position: absolute; inset: 0; pointer-events: none; }
+  .wl { font-size: 13px; font-weight: 600; fill: var(--muted); font-family: inherit; }
+</style>
+</head>
+<body>
+<div id="canvas">
+
+  <!-- Header -->
+  <div class="abs title">
+    <h1><span class="grad">VoxMesh</span> — Decentralised Multi-Agent Runtime</h1>
+    <p>Every agent has an identity · every task has a trace · every delegation has context · every execution has an auditable outcome</p>
+  </div>
+  <div class="abs legend">
+    <span><i></i> server call</span>
+    <span><i class="dash"></i> browser / user-approved</span>
+    <span><b></b> external network</span>
+  </div>
+
+  <!-- ───────── Clients ───────── -->
+  <div class="abs zone" style="left:40px; top:160px; width:360px; height:740px;"><div class="zlabel">Clients</div></div>
+
+  <div class="card accent" style="left:62px; top:186px; width:316px; height:420px; border-top-color: var(--violet);">
+    <h3><span class="dot" style="background:var(--violet)"></span>Laptop web app</h3>
+    <p>React 19 · Vite · Tailwind</p>
+    <div class="chips">
+      <span class="chip">Voice STT / TTS</span><span class="chip">Text commands</span>
+      <span class="chip">Live trace (SSE)</span><span class="chip">Arkiv explorer</span>
+      <span class="chip">Agent registry + trust</span><span class="chip">World ID widget</span>
+      <span class="chip">ENSv2 agent names</span><span class="chip">Phone pairing QR</span>
+    </div>
+    <p style="margin-top:14px">Speaks the Supervisor's summary back when a workflow finishes.</p>
+    <p>Workflows started from the phone show up here too, with the full trace.</p>
+    <p>Wallet prompts (MetaMask) are approved on this laptop.</p>
+    <div class="tag">http://localhost:5173 · loopback only</div>
+  </div>
+
+  <div class="card accent" style="left:62px; top:638px; width:316px; height:238px; border-top-color: var(--cyan);">
+    <h3><span class="dot" style="background:var(--cyan)"></span>Phone (same Wi-Fi)</h3>
+    <p>Scan the QR on the laptop, tap the mic, speak. The command runs on the laptop; progress and the spoken reply come back to the phone.</p>
+    <div class="tag">https://&lt;laptop-ip&gt;:5443 · paired by QR</div>
+  </div>
+
+  <!-- ───────── Runtime ───────── -->
+  <div class="abs zone" style="left:460px; top:160px; width:940px; height:740px;"><div class="zlabel">VoxMesh runtime · Node 22 · Express 5 · TypeScript · Zod</div></div>
+
+  <!-- Orchestrator -->
+  <div class="card accent" style="left:484px; top:188px; width:892px; height:148px; border-top-color: var(--violet);">
+    <h3><span class="dot" style="background:var(--violet)"></span>Orchestrator &amp; Supervisor agent</h3>
+    <p>The LLM <b style="color:var(--text)">proposes</b> a JSON plan on 0G → <span class="mono" style="color:var(--text)">validatePlan()</span> <b style="color:var(--text)">decides</b> (capabilities, dependencies, budget) → tasks are delegated through Arkiv → a bounded DAG runs them → the Supervisor aggregates the final report.</p>
+    <div class="chips">
+      <span class="chip">parallel layers</span><span class="chip">retries + timeouts</span><span class="chip">call budget</span>
+      <span class="chip">delegation depth limit</span><span class="chip">deterministic fallback plans</span>
+    </div>
+  </div>
+
+  <!-- Agents -->
+  <div class="abs" style="left:486px; top:356px; font-size:13px; font-weight:700; letter-spacing:.12em; color:var(--faint);">SPECIALIST AGENTS — CLAIM TASKS BY CAPABILITY</div>
+  <div class="card accent" style="left:484px; top:382px; width:170px; height:170px; border-top-color: var(--blue);">
+    <h3><span class="dot" style="background:var(--blue)"></span>Research</h3>
+    <p>Solidity analysis on 0G + static tools; Polymarket market snapshots</p>
+  </div>
+  <div class="card accent" style="left:664px; top:382px; width:170px; height:170px; border-top-color: var(--rose);">
+    <h3><span class="dot" style="background:var(--rose)"></span>Security</h3>
+    <p>Risk review on 0G, cross-checked by an independent static scan</p>
+  </div>
+  <div class="card accent" style="left:844px; top:382px; width:170px; height:170px; border-top-color: var(--amber);">
+    <h3><span class="dot" style="background:var(--amber)"></span>Liquidity</h3>
+    <p>Capped two-sided LP quotes from research; simulation only</p>
+  </div>
+  <div class="card accent" style="left:1024px; top:382px; width:170px; height:170px; border-top-color: var(--green);">
+    <h3><span class="dot" style="background:var(--green)"></span>MetaMask</h3>
+    <p>Opens Chrome via Playwright; user approves Sepolia transfers</p>
+  </div>
+  <div class="card accent" style="left:1204px; top:382px; width:172px; height:170px; border-top-color: var(--cyan);">
+    <h3><span class="dot" style="background:var(--cyan)"></span>Minara</h3>
+    <p>Paid research &amp; suggestions via API key; never executes</p>
+  </div>
+
+  <!-- Platform services -->
+  <div class="abs" style="left:486px; top:574px; font-size:13px; font-weight:700; letter-spacing:.12em; color:var(--faint);">PLATFORM SERVICES</div>
+  <div class="card accent" style="left:484px; top:600px; width:212px; height:128px; border-top-color: var(--cyan);">
+    <h3 style="font-size:16.5px">Phone gateway</h3>
+    <p>HTTPS listener · pairing token · route allowlist</p>
+  </div>
+  <div class="card" style="left:710px; top:600px; width:212px; height:128px;">
+    <h3 style="font-size:16.5px">Message bus</h3>
+    <p>Supervisor ↔ worker only · correlation IDs</p>
+  </div>
+  <div class="card" style="left:936px; top:600px; width:212px; height:128px;">
+    <h3 style="font-size:16.5px">Registry &amp; trust</h3>
+    <p>Capability discovery · trust score gates task claims</p>
+  </div>
+  <div class="card" style="left:1162px; top:600px; width:214px; height:128px;">
+    <h3 style="font-size:16.5px">Identity service</h3>
+    <p>World ID sessions · privileged permissions</p>
+  </div>
+
+  <!-- Adapters -->
+  <div class="abs" style="left:486px; top:750px; font-size:13px; font-weight:700; letter-spacing:.12em; color:var(--faint);">ADAPTERS — LIVE OR CLEARLY LABELLED DEV FALLBACK</div>
+  <div class="card" style="left:484px; top:776px; width:438px; height:100px;">
+    <h3 style="font-size:16.5px">Inference adapter</h3>
+    <p>0G Compute (live) · labelled mock (dev) · Zod-validated JSON output</p>
+  </div>
+  <div class="card" style="left:936px; top:776px; width:440px; height:100px;">
+    <h3 style="font-size:16.5px">Coordination store</h3>
+    <p>Arkiv entities (live) · in-memory (dev) · batched, serial-queued writes</p>
+  </div>
+
+  <!-- ───────── External ───────── -->
+  <div class="abs zone" style="left:1460px; top:160px; width:420px; height:740px;"><div class="zlabel">External networks</div></div>
+
+  <div class="card" style="left:1482px; top:186px; width:376px; height:88px;">
+    <h3 style="font-size:17px"><span class="dot" style="background:var(--slate)"></span>ENSv2 · Sepolia / Mainnet</h3>
+    <p>Hierarchical agent names + resolver records</p>
+  </div>
+  <div class="card" style="left:1482px; top:286px; width:376px; height:88px;">
+    <h3 style="font-size:17px"><span class="dot" style="background:var(--violet)"></span>0G Compute</h3>
+    <p>LLM inference · TEE verification · request IDs</p>
+  </div>
+  <div class="card" style="left:1482px; top:386px; width:376px; height:88px;">
+    <h3 style="font-size:17px"><span class="dot" style="background:var(--blue)"></span>Arkiv · Rabdi testnet</h3>
+    <p>Tasks, results, messages, workflow records</p>
+  </div>
+  <div class="card" style="left:1482px; top:486px; width:376px; height:88px;">
+    <h3 style="font-size:17px"><span class="dot" style="background:var(--text)"></span>World ID</h3>
+    <p>Proof-of-human verification for owners</p>
+  </div>
+  <div class="card" style="left:1482px; top:586px; width:376px; height:88px;">
+    <h3 style="font-size:17px"><span class="dot" style="background:var(--amber)"></span>Polymarket Gamma API</h3>
+    <p>Public, read-only market data</p>
+  </div>
+  <div class="card" style="left:1482px; top:686px; width:376px; height:88px;">
+    <h3 style="font-size:17px"><span class="dot" style="background:var(--green)"></span>MetaMask · Sepolia</h3>
+    <p>User signs every transaction</p>
+  </div>
+  <div class="card" style="left:1482px; top:786px; width:376px; height:88px;">
+    <h3 style="font-size:17px"><span class="dot" style="background:var(--cyan)"></span>Minara API</h3>
+    <p>Prediction / DeFi research endpoints</p>
+  </div>
+
+  <!-- ───────── Lifecycle ───────── -->
+  <div class="abs" style="left:42px; top:922px; font-size:13px; font-weight:700; letter-spacing:.12em; color:var(--faint);">WORKFLOW LIFECYCLE</div>
+  <div class="step" style="left:40px;"><div class="n">01</div><h4>Command</h4><p>Voice or text, laptop or phone</p></div>
+  <div class="step" style="left:308px;"><div class="n">02</div><h4>Plan</h4><p>0G proposes · validator decides</p></div>
+  <div class="step" style="left:576px;"><div class="n">03</div><h4>Delegate</h4><p>Tasks written in one Arkiv batch</p></div>
+  <div class="step" style="left:844px;"><div class="n">04</div><h4>Claim &amp; execute</h4><p>Agents claim, run in parallel</p></div>
+  <div class="step" style="left:1112px;"><div class="n">05</div><h4>Aggregate</h4><p>Supervisor report on 0G</p></div>
+  <div class="step" style="left:1380px;"><div class="n">06</div><h4>Record</h4><p>Results + workflow on Arkiv</p></div>
+  <div class="step" style="left:1648px; width:232px;"><div class="n">07</div><h4>Respond</h4><p>Live trace · spoken summary</p></div>
+
+  <!-- ───────── Wires ───────── -->
+  <svg id="wires" width="1920" height="1080" viewBox="0 0 1920 1080">
+    <defs>
+      <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="var(--arrow)"/>
+      </marker>
+    </defs>
+    <g stroke="var(--arrow)" stroke-width="2" fill="none">
+      <!-- clients → runtime -->
+      <path d="M378,262 L484,262" marker-end="url(#ah)" marker-start="url(#ah)"/>
+      <path d="M378,757 L430,757 L430,664 L484,664" marker-end="url(#ah)" marker-start="url(#ah)"/>
+      <!-- ENS from browser wallet (dashed, over the top) -->
+      <path d="M220,186 L220,138 L1670,138 L1670,186" stroke-dasharray="7 6" marker-end="url(#ah)"/>
+      <!-- runtime → external: short links from the runtime edge -->
+      <path d="M1400,330 L1482,330" marker-end="url(#ah)"/>
+      <path d="M1400,430 L1482,430" marker-end="url(#ah)"/>
+      <path d="M1400,530 L1482,530" marker-end="url(#ah)"/>
+      <path d="M1400,630 L1482,630" marker-end="url(#ah)"/>
+      <path d="M1400,730 L1482,730" marker-end="url(#ah)" stroke-dasharray="7 6"/>
+      <path d="M1400,830 L1482,830" marker-end="url(#ah)"/>
+      <!-- lifecycle arrows -->
+      <path d="M268,996 L306,996" marker-end="url(#ah)"/>
+      <path d="M536,996 L574,996" marker-end="url(#ah)"/>
+      <path d="M804,996 L842,996" marker-end="url(#ah)"/>
+      <path d="M1072,996 L1110,996" marker-end="url(#ah)"/>
+      <path d="M1340,996 L1378,996" marker-end="url(#ah)"/>
+      <path d="M1608,996 L1646,996" marker-end="url(#ah)"/>
+    </g>
+    <g class="wl">
+      <text x="388" y="252">REST + SSE</text>
+      <text x="392" y="782">HTTPS</text>
+      <text x="236" y="130">ENS writes from the user's wallet</text>
+    </g>
+  </svg>
+</div>
+<script>
+  if (new URLSearchParams(location.search).get("theme") === "light") document.documentElement.classList.add("light");
+</script>
+</body>
+</html>

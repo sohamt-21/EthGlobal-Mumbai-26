@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>VoxMesh Intro Slide</title>
+<style>
+  :root {
+    --bg: #0e0f15; --panel: #171822; --panel2: #1d1e2a; --line: #2c2d3b; --line2: #3a3b4d;
+    --text: #eeedf5; --muted: #a09fb2; --faint: #6f6e82;
+    --violet: #a48bff; --blue: #6b97ff; --rose: #ff7f97; --amber: #f3c463; --green: #4fd8a4; --cyan: #57d0f2;
+    --glow: rgba(164,139,255,.16);
+  }
+  .light {
+    --bg: #ffffff; --panel: #f6f6fb; --panel2: #eeeef6; --line: #dcdce8; --line2: #c9c9d8;
+    --text: #15151d; --muted: #565669; --faint: #8a8a9c;
+    --violet: #6a4ce0; --blue: #2f64d9; --rose: #d0405e; --amber: #b07a0c; --green: #138a5f; --cyan: #0b84a8;
+    --glow: rgba(106,76,224,.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); }
+  body { width: 1920px; height: 1080px; overflow: hidden; color: var(--text);
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
+  #slide { position: relative; width: 1920px; height: 1080px;
+    background: radial-gradient(900px 600px at 82% 30%, var(--glow), transparent 70%); }
+  .abs { position: absolute; }
+  .mono { font-family: "SF Mono", ui-monospace, Menlo, monospace; }
+  .grad { background: linear-gradient(90deg, var(--violet), var(--blue) 55%, var(--cyan)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+  /* left */
+  .eyebrow { left: 110px; top: 96px; font-size: 18px; font-weight: 700; letter-spacing: .16em; color: var(--faint); }
+  .title { left: 104px; top: 128px; font-size: 132px; font-weight: 800; letter-spacing: -0.04em; line-height: 1; }
+  .subtitle { left: 110px; top: 284px; width: 900px; font-size: 34px; line-height: 1.3; font-weight: 500; color: var(--text); letter-spacing: -0.01em; }
+  .subtitle span { color: var(--muted); }
+
+  ul.points { left: 110px; top: 420px; width: 940px; list-style: none; display: grid; gap: 26px; }
+  .points li { display: grid; grid-template-columns: 44px 1fr; gap: 18px; align-items: start; }
+  .points .ic { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; font-size: 15px; font-weight: 800;
+    border: 1.5px solid var(--line2); background: var(--panel); }
+  .points h3 { font-size: 25px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.2; }
+  .points p { font-size: 19.5px; color: var(--muted); line-height: 1.4; margin-top: 4px; }
+
+  .built { left: 110px; top: 968px; display: flex; align-items: center; gap: 12px; }
+  .built .lbl { font-size: 14px; font-weight: 700; letter-spacing: .14em; color: var(--faint); margin-right: 6px; }
+  .chip { font-size: 16px; font-weight: 600; padding: 7px 14px; border-radius: 99px; background: var(--panel); border: 1.5px solid var(--line); color: var(--text);
+    display: inline-flex; align-items: center; gap: 8px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+
+  /* right: one command, end to end */
+  .demo { left: 1160px; top: 128px; width: 660px; border: 1.5px solid var(--line); border-radius: 26px;
+    background: color-mix(in oklab, var(--panel) 70%, transparent); padding: 30px 32px; }
+  .demo .hdr { font-size: 14px; font-weight: 700; letter-spacing: .14em; color: var(--faint); }
+  .bubble { margin-top: 18px; display: flex; gap: 14px; align-items: center; padding: 16px 18px; border-radius: 18px;
+    background: linear-gradient(135deg, color-mix(in oklab, var(--violet) 22%, transparent), color-mix(in oklab, var(--blue) 18%, transparent));
+    border: 1.5px solid color-mix(in oklab, var(--violet) 40%, transparent); }
+  .mic { width: 46px; height: 46px; border-radius: 50%; flex: none; background: linear-gradient(135deg, var(--violet), var(--blue)); display: grid; place-items: center; }
+  .bubble q { font-size: 20px; font-weight: 600; line-height: 1.35; quotes: "“" "”"; }
+  .flow { display: grid; justify-items: center; }
+  .down { width: 2px; height: 34px; background: var(--line2); position: relative; margin: 6px 0; }
+  .down::after { content: ""; position: absolute; left: -5px; bottom: -2px; border: 6px solid transparent; border-top: 8px solid var(--line2); border-bottom: 0; }
+  .box { width: 100%; border: 1.5px solid var(--line); border-radius: 16px; background: var(--panel); padding: 14px 18px; }
+  .box h4 { font-size: 19px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+  .box p { font-size: 16px; color: var(--muted); margin-top: 4px; line-height: 1.35; }
+  .agents { width: 100%; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .agent { border: 1.5px solid var(--line); border-top-width: 4px; border-radius: 14px; background: var(--panel); padding: 12px 14px; }
+  .agent h5 { font-size: 17px; font-weight: 700; }
+  .agent p { font-size: 14.5px; color: var(--muted); margin-top: 3px; line-height: 1.3; }
+  .trace { width: 100%; border: 1.5px solid var(--line); border-radius: 16px; background: var(--panel); padding: 14px 18px; }
+  .trace h4 { font-size: 17px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+  .trace ol { list-style: none; margin-top: 8px; display: grid; gap: 6px; }
+  .trace li { font-size: 14.5px; color: var(--muted); display: grid; grid-template-columns: 150px 1fr; gap: 10px; }
+  .trace li .mono { color: var(--text); font-size: 13.5px; }
+  .report { width: 100%; border-radius: 16px; padding: 14px 18px; border: 1.5px solid color-mix(in oklab, var(--green) 45%, transparent);
+    background: color-mix(in oklab, var(--green) 10%, transparent); display: flex; align-items: center; gap: 14px; }
+  .report b { font-size: 18px; }
+  .report span { font-size: 15.5px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div id="slide">
+
+  <div class="abs eyebrow">ETHGLOBAL MUMBAI 2026</div>
+  <div class="abs title"><span class="grad">VoxMesh</span></div>
+  <div class="abs subtitle">A voice-driven, decentralised multi-agent runtime — <span>speak a task, and accountable AI agents plan it, do it and prove it.</span></div>
+
+  <ul class="abs points">
+    <li><div class="ic" style="color:var(--violet)">01</div><div>
+      <h3>Talk to it from your laptop or your phone</h3>
+      <p>A Supervisor agent turns your words into a plan on 0G and hands the work to specialist agents.</p></div></li>
+    <li><div class="ic" style="color:var(--blue)">02</div><div>
+      <h3>Every step is on-chain and auditable</h3>
+      <p>Tasks, claims, results and messages are Arkiv entities, so anyone can replay the full trace.</p></div></li>
+    <li><div class="ic" style="color:var(--cyan)">03</div><div>
+      <h3>Agents have real identities</h3>
+      <p>ENSv2 names per agent, World ID-verified owners, and a trust score that gates every claim.</p></div></li>
+    <li><div class="ic" style="color:var(--amber)">04</div><div>
+      <h3>The LLM proposes; code decides</h3>
+      <p>Plans are validated deterministically, tools are allowlisted, and budgets and timeouts are enforced.</p></div></li>
+    <li><div class="ic" style="color:var(--green)">05</div><div>
+      <h3>Humans stay in control of money</h3>
+      <p>Wallet actions open MetaMask, where you approve or reject every transaction yourself.</p></div></li>
+  </ul>
+
+  <div class="abs built">
+    <span class="lbl">BUILT ON</span>
+    <span class="chip"><i class="dot" style="background:var(--violet)"></i>0G Compute</span>
+    <span class="chip"><i class="dot" style="background:var(--blue)"></i>Arkiv</span>
+    <span class="chip"><i class="dot" style="background:var(--text)"></i>World ID</span>
+    <span class="chip"><i class="dot" style="background:var(--muted)"></i>ENSv2</span>
+    <span class="chip"><i class="dot" style="background:var(--green)"></i>MetaMask</span>
+    <span class="chip"><i class="dot" style="background:var(--amber)"></i>Polymarket</span>
+  </div>
+
+  <!-- right: one command end to end -->
+  <div class="abs demo">
+    <div class="hdr">ONE COMMAND, END TO END</div>
+    <div class="flow">
+      <div class="bubble" style="width:100%">
+        <div class="mic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></div>
+        <q>Analyse this vault contract and have security review the findings.</q>
+      </div>
+      <div class="down"></div>
+      <div class="box">
+        <h4><span class="dot" style="background:var(--violet); width:11px; height:11px"></span>Supervisor plans on 0G</h4>
+        <p>research → security review → report · validated before it runs</p>
+      </div>
+      <div class="down"></div>
+      <div class="agents">
+        <div class="agent" style="border-top-color:var(--blue)"><h5>Research</h5><p>Reads the contract with 0G + static tools</p></div>
+        <div class="agent" style="border-top-color:var(--rose)"><h5>Security</h5><p>Reviews risks, cross-checked by a scan</p></div>
+        <div class="agent" style="border-top-color:var(--amber)"><h5>+ 3 more</h5><p>Liquidity · MetaMask · Minara</p></div>
+      </div>
+      <div class="down"></div>
+      <div class="trace">
+        <h4><span class="dot" style="background:var(--blue); width:11px; height:11px"></span>Auditable trace on Arkiv</h4>
+        <ol>
+          <li><span class="mono">task.created</span><span>2 tasks in one batch transaction</span></li>
+          <li><span class="mono">task.claimed</span><span>by agents with the right capability</span></li>
+          <li><span class="mono">execution.saved</span><span>results + 0G request IDs</span></li>
+          <li><span class="mono">workflow.recorded</span><span>final status and risk score</span></li>
+        </ol>
+      </div>
+      <div class="down"></div>
+      <div class="report">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        <div><b>Combined report, spoken back</b><br><span>Risk level and score · every claim traceable</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  if (new URLSearchParams(location.search).get("theme") === "light") document.documentElement.classList.add("light");
+</script>
+</body>
+</html>
