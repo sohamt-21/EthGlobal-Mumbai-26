@@ -1,33 +1,92 @@
-# VoxMesh — Decentralised Multi-Agent Runtime
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/voxmesh-logo-on-dark.png">
+    <img src="docs/brand/voxmesh-logo-on-light.png" alt="VoxMesh" width="360">
+  </picture>
+</p>
 
-Voice-driven, identity-aware multi-agent runtime. A **Supervisor** plans with **0G** inference, delegates tasks
-through **Arkiv** entities, and **Research** + **Security** agents discover, claim, execute and persist auditable
-results. Privileged operations are gated by **World ID**.
+<p align="center"><b>A voice-driven, decentralised multi-agent runtime.</b><br>
+Speak a task, and accountable AI agents plan it, do it and prove it.</p>
 
-> Every agent has an identity. Every task has a trace. Every delegation has context. Every execution has an auditable outcome.
+<p align="center"><i>Built at ETHGlobal Mumbai 2026.</i></p>
 
-- [ARCHITECTURE.md](ARCHITECTURE.md) — design, lifecycle, Arkiv schemas, security
-- [docs/API.md](docs/API.md) — REST + SSE reference
-- [docs/TESTING.md](docs/TESTING.md) — testing report
-- [PLAN.md](PLAN.md) — implementation plan
+---
 
-## Status — what is live
+## What it does
 
-| Component | State |
+You say or type a command, on your laptop or your paired phone. A **Supervisor** agent plans the work using **0G** inference and delegates tasks to specialist agents through **Arkiv**. The agents claim those tasks, run them and save their results back to Arkiv. The Supervisor combines everything into one report and reads it aloud.
+
+- **Auditable by design.** Every task, claim, result and message is an Arkiv entity with an owner and an expiry. Anyone can re-query the trace.
+- **The LLM proposes; code decides.** Plans are validated deterministically, tools are allowlisted, and budgets, timeouts and retries are enforced.
+- **Agents with identities.** ENSv2 names per agent, World ID-verified owners, and a trust score that gates task claims.
+- **Humans approve money.** Wallet actions open MetaMask, and the user approves or rejects each transaction.
+
+**Agents:** Supervisor · Research (Solidity analysis, Polymarket data) · Security (risk review cross-checked by a static scan) · Liquidity (capped LP quote simulation) · MetaMask (Sepolia transfers) · Minara (paid research and suggestions).
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/architecture/voxmesh-architecture-dark.png">
+  <img src="docs/architecture/voxmesh-architecture-light.png" alt="VoxMesh architecture">
+</picture>
+
+More detail: [ARCHITECTURE.md](ARCHITECTURE.md) · [API reference](docs/API.md) · [testing](docs/TESTING.md)
+
+## Arkiv
+
+Arkiv is VoxMesh's shared coordination memory on the **Rabdi testnet**, accessed through `@arkiv-network/sdk`:
+
+- Agents **discover** open tasks with filtered queries.
+- They **claim** tasks by patching them.
+- Dependent agents **read upstream results** from Arkiv before they run.
+- The Explorer and Trace pages render live Arkiv queries.
+
+| | |
 |---|---|
-| Supervisor / Research / Security agents, DAG orchestrator (sequential, parallel, conditional skip, retries, timeouts, call budget, depth limit) | ✅ implemented + tested |
-| Message bus (Supervisor–Worker topology, correlation IDs), allowlisted tools, task ownership | ✅ implemented + tested |
-| **0G** inference adapter (`x_0g_trace` request IDs, provider, billing, TEE verification) | ✅ implemented against documented API · ⚠️ **not exercised live** (no API key here) |
-| **Arkiv** coordination store (6 entity schemas, batch writes, owner-scoped queries, expiry) | ✅ implemented · ✅ live **reads** verified on Rabdi · ⚠️ live **writes** need a funded key |
-| **World ID** IDKit v4 (server RP signing, proof forwarding, nonce replay protection, sessions, protected ops) | ✅ implemented + tested against a mocked portal · ⚠️ needs app/RP credentials for live use |
-| Voice (Web Speech STT + TTS), text chat, conversation history | ✅ (STT needs Chrome/Edge/Safari; text always works) |
-| Frontend: Dashboard, Agent Registry, Command, Execution Trace, Arkiv Explorer, Identity & Trust | ✅ |
-| **ENSv2** | ✅ Sepolia/Mainnet Permissioned Registry hierarchy, per-agent resolver records, and key-scoped EAC delegation from the Agents page |
-| Hedera x402 | ⏸ not implemented (P2) |
+| **Writer wallet** | [`0x5c553e27e588b9dE72A76d521b17610A97d45143`](https://rabdi.explorer.arkiv.network/address/0x5c553e27e588b9dE72A76d521b17610A97d45143) |
+| **Workspace** | `voxmesh-ethglobal-mumbai` |
+| **Entities** | `voxmesh.agent.v1`, `voxmesh.task.v1`, `voxmesh.message.v1`, `voxmesh.execution.v1`, `voxmesh.workflow.v1`, `voxmesh.identity.v1` |
 
-Without credentials the app runs end-to-end on **clearly labelled** fallbacks: `DEV MOCK` inference (request IDs
-prefixed `mock_`) and a `LOCAL STORE` (keys prefixed `local:`). Fallbacks are shown as such in every API payload
-and in the UI; nothing is presented as a real 0G call, Arkiv transaction or World ID verification.
+**Run a query** (read-only; no key or `.env` needed):
+
+```bash
+npm install
+```
+
+```bash
+npm run arkiv:query
+```
+
+It runs this query and prints the latest workflow records with their keys, expiry blocks and status:
+
+```ts
+client.select({ $key: true, $expiresAt: true, $attributes: true, payload: true })
+  .where(and(eq("workspace", "voxmesh-ethglobal-mumbai"), eq("arkiv.schema", "voxmesh.workflow.v1")))
+  .ownedBy("0x5c553e27e588b9dE72A76d521b17610A97d45143")
+  .limit(10)
+  .fetch()
+```
+
+Add `-- task open`, `-- execution`, `-- message`, `-- agent` or `-- identity` to query other entity kinds.
+
+| Judging criterion | File |
+|---|---|
+| Schema: entities, query fields, owners, expiry | [arkiv/schema.md](arkiv/schema.md) |
+| Arkiv feedback | [arkiv/friction.md](arkiv/friction.md) |
+| Reach | [arkiv/reach.md](arkiv/reach.md) |
+| Why Arkiv | [arkiv/why-arkiv.md](arkiv/why-arkiv.md) |
+| How we use Arkiv | [arkiv/how-you-use-arkiv.md](arkiv/how-you-use-arkiv.md) |
+
+## Other integrations
+
+| | How VoxMesh uses it |
+|---|---|
+| **0G Compute** | All planning, analysis and report inference. Each call records `x_0g_trace.request_id`, provider, billing and TEE verification, shown in the trace and saved on Arkiv. |
+| **World ID** | IDKit v4 proof-of-human. Required to register or own agents, and optionally to run workflows (`WORKFLOW_REQUIRES_HUMAN`). |
+| **ENSv2** | Hierarchical agent names (`research.supervisor.voxmesh.<parent>.eth`) with per-agent resolver records, created from the user's wallet on the Agents page. |
+| **MetaMask** | The MetaMask agent opens Chrome via Playwright and requests a Sepolia transfer. The user approves it in MetaMask. |
+| **Polymarket** | Public Gamma API market data for the LP simulation (read-only; no orders). |
+| **Minara** | Paid prediction, DeFi, swap and perp research via API key. Suggestions only; never executed. |
+
+Without credentials, everything runs on clearly labelled fallbacks (`DEV MOCK` inference, `LOCAL STORE`). Nothing fake is presented as a real 0G call, Arkiv transaction or World ID verification.
 
 ## Quick start
 
@@ -45,107 +104,88 @@ cp .env.example .env
 npm run dev
 ```
 
-- Web: http://localhost:5173 (Vite proxies `/api` → `http://localhost:8787`)
-- API: http://localhost:8787 (`API_PORT`)
+Open http://localhost:5173. The API runs on `127.0.0.1:8787`, and the integrations panel shows which services are `LIVE`.
 
-### Enabling the live integrations
+To go live, set these in `.env` and restart:
 
-| Integration | Set in `.env` | Get it |
+| Integration | Variables | Get them |
 |---|---|---|
-| 0G | `ZG_API_KEY` (+ `ZG_BASE_URL` for testnet, `ZG_MODEL`) | https://pc.0g.ai/dashboard/api-keys |
-| Arkiv | `ARKIV_PRIVATE_KEY` (funded with tGLM), `ARKIV_ACCESS_KEY` | key: `node --input-type=module -e "import{generatePrivateKey,privateKeyToAccount}from'viem/accounts';const k=generatePrivateKey();console.log(k,privateKeyToAccount(k).address)"` · faucet: https://hub.arkiv.network/faucet · access key: https://hub.arkiv.network/access-keys |
-| World ID | `WORLD_APP_ID`, `WORLD_RP_ID`, `WORLD_RP_SIGNING_KEY`, `WORLD_ACTION` | https://developer.world.org (create app + RP; `WORLD_ENVIRONMENT=staging` to use the simulator) |
+| 0G | `ZG_API_KEY` (optional `ZG_MODEL`) | [pc.0g.ai](https://pc.0g.ai/dashboard/api-keys) |
+| Arkiv | `ARKIV_PRIVATE_KEY` (funded with tGLM), `ARKIV_ACCESS_KEY` | [faucet](https://hub.arkiv.network/faucet) · [access keys](https://hub.arkiv.network/access-keys) |
+| World ID | `WORLD_APP_ID`, `WORLD_RP_ID`, `WORLD_RP_SIGNING_KEY` (`WORLD_ENVIRONMENT=staging` for the simulator) | [developer.world.org](https://developer.world.org) |
+| MetaMask | `METAMASK_CDP_ENDPOINT=http://127.0.0.1:9222` | see [MetaMask transfers](#metamask-transfers) |
+| Minara | `MINARA_API_KEY` | Minara Pro / Partner account |
+| Phone | `PHONE_ACCESS_ENABLED=true` | see [Phone voice commands](#phone-voice-commands) |
 
-ENSv2 uses the connected browser wallet rather than server environment keys. Open **Agents**, choose Sepolia or Ethereum Mainnet, connect MetaMask, and enter a parent `.eth` name that the connected account owns on ENSv2. The app creates the `voxmesh` namespace, a Supervisor subregistry, and unique Research/Security subnames. It writes text records through an ENSv2 Permissioned Resolver and can grant an address permission to update only one agent's endpoint key. New names default to one-year expiry and are non-transferable; both options can be changed before creation. The wallet must have network gas, and each transaction is confirmed in the wallet.
+## Using it
 
-### Phone voice commands (same Wi-Fi)
+On the **Command** page, press the mic or type:
 
-Set `PHONE_ACCESS_ENABLED=true` in `.env` and restart `npm run dev`. On the laptop, open **Command → Phone → Pair a phone** and scan the QR code with your phone's camera. The phone page runs the command on the laptop, shows live progress and speaks the reply.
+- `Start a multi-agent workflow. Ask the research agent to analyse this smart contract and ask the security agent to review the findings.` runs a full audit of the selected sample contract.
+- `Run research and security review in parallel on this contract.` runs both agents at the same time.
+- `Simulate a Polymarket liquidity plan for "Another S&P 500 Company buys Bitcoin by December 31, 2026"` runs research and capped LP quotes; it is a simulation only.
+- `Send 0.001 Sepolia ETH to 0x…` opens MetaMask for your approval.
+- `Minara defi: <question>` makes one paid Minara call.
 
-- **HTTPS.** Phones only allow speech recognition on HTTPS pages. The server issues a self-signed certificate for the laptop's Wi-Fi address and serves the phone page on `https://<laptop-ip>:5443/phone` (`PHONE_HTTPS_PORT`). The phone shows a one-time certificate warning; accept it to continue. A new certificate (and one more warning) is issued when the laptop's address changes. If voice is unavailable, the keyboard's dictation key works in the text box.
-- **Pairing.** The QR code holds a random pairing token in the URL fragment, which the browser never sends to the server. The phone stores the token and sends it with every request. **Reset** in the Phone panel invalidates every paired phone. The token and certificate are stored in `~/.voxmesh/phone` (`PHONE_STATE_DIR`).
-- **What the phone can do.** The phone listener exposes only its own page plus: start a workflow, poll that workflow, list sample contracts and a health check. It cannot register agents, write tasks, reach identity endpoints or see the pairing QR. Phone workflows are recorded as initiated by `paired-phone`. If `WORKFLOW_REQUIRES_HUMAN=true`, start workflows from the laptop instead.
-- **Wallet actions.** Wallet requests started from the phone still open MetaMask **on the laptop**, where you approve or reject them.
-- **Network exposure.** The main API (`API_HOST`, default `127.0.0.1`) and the Vite dev server listen only on the laptop itself. Only the paired HTTPS listener is reachable from the network.
+Then open **Execution Trace** to see each step with its Arkiv entity key, transaction and 0G request ID, and use **Verify against coordination store** to re-read it from Arkiv. **Arkiv Explorer** lists every entity kind live.
 
-### MetaMask transfer agent
+### Phone voice commands
 
-The Command page accepts explicit native Sepolia ETH requests such as `Send 0.001 Sepolia ETH to 0x...`. For a real Chrome window with MetaMask installed, start a dedicated Chrome profile with a localhost debugging port:
+Set `PHONE_ACCESS_ENABLED=true` and restart. On the laptop, open **Command → Phone → Pair a phone**, then scan the QR code with a phone on the same Wi-Fi.
+
+- The phone page is served over HTTPS (self-signed; accept the one-time warning) at `https://<laptop-ip>:5443/phone`. HTTPS is what lets the phone use speech recognition.
+- Commands run on the laptop. Progress and the spoken reply come back to the phone.
+- The phone can only start and poll workflows. MetaMask prompts still appear on the laptop.
+- The main API and the UI listen only on `127.0.0.1`. **Reset** in the Phone panel unpairs every phone.
+
+### MetaMask transfers
+
+Start a separate Chrome profile with a local debugging port, install MetaMask in it with a Sepolia-only test wallet, and set `METAMASK_CDP_ENDPOINT=http://127.0.0.1:9222`:
 
 ```bash
 open -na "Google Chrome" --args --remote-debugging-port=9222 --user-data-dir="$HOME/.voxmesh/metamask-chrome"
 ```
 
-In that Chrome profile, install MetaMask from the Chrome Web Store and set it up with a test wallet funded only with Sepolia test ETH. Add `METAMASK_CDP_ENDPOINT=http://127.0.0.1:9222` to `.env`, then restart the API. Keep that Chrome window open while using the Command page. The agent attaches to it and opens the transfer page in a new tab; it does not close Chrome. Chrome requires a non-default user-data directory for remote debugging, so this is a separate profile from your regular Chrome profile. The debugging endpoint must remain local and must not be exposed to a network.
-
-Without `METAMASK_CDP_ENDPOINT`, the agent can use Playwright Chromium instead: install its browser with `npx playwright install chromium`, set `METAMASK_EXTENSION_PATH` to an unpacked extension directory, and use `METAMASK_PROFILE_PATH` (defaults to `~/.voxmesh/metamask-profile`) for its persistent profile.
-
-In either mode the agent requests a switch to Sepolia and verifies the active chain. While `eth_requestAccounts` is pending, it may click Connect/review-permissions controls only on MetaMask’s prompt for that exact temporary localhost origin. It never enters a wallet password. Approve any network-change prompt and the final transaction yourself after reviewing the network, recipient, and amount. The agent never confirms or signs the transaction and does not retry wallet requests. A returned transaction hash means submitted, not confirmed on-chain. The workflow fails closed if MetaMask is unavailable, the active network is not Sepolia, or the wallet request is rejected.
-
-### Prediction-market LP demo
-
-In the Command page, run `Simulate a Polymarket liquidity plan for "Another S&P 500 Company buys Bitcoin by December 31, 2026"`. The Research Agent reads the matching open market from Polymarket’s public Gamma API; the Liquidity Simulation Agent calculates four two-sided quotes capped at $5 each ($20 total). This is strictly a dry run: it does not use the order API, collateral, or wallet agent. A Sepolia test transfer is separate and is not Polymarket funding. The 8004scan listings checked for this demo did not provide callable agent services.
-
-### Minara API agent
-
-Minara’s documented API-key endpoints are available to Pro/Partner accounts and consume Minara credits. Set `MINARA_API_KEY` in the server `.env` file; keep it server-side and never share it in chat. Invoke one service explicitly from Command:
-
-- `Minara prediction: https://polymarket.com/event/<slug>`
-- `Minara defi: <question>`
-- `Minara swap: <intent> wallet <0x-address> chain <name>`
-- `Minara perp: <symbol>`
-
-Each workflow makes at most one Minara call and does not retry paid requests. Swap and perpetual responses are suggestions only; this agent never signs or submits them. The local Polymarket LP workflow remains free and simulation-only.
-
-Check connectivity:
-
-```bash
-npm run arkiv:check
-```
-
-```bash
-npm run test:integration
-```
-
-`GET /api/integrations/status` (and the sidebar) show `LIVE` only when the real service is configured and reachable.
-
-## Demo script (≈3 minutes)
-
-1. **Runtime** page — show the integrations and their modes; agents registered in the coordination store.
-2. **Command** page — keep `MeshVault.sol` selected, press the mic and say (or just click **Run workflow**):
-   > "Start a multi-agent workflow. Ask the research agent to analyse this smart contract and ask the security agent to review the findings. Return a combined report."
-3. Watch the right rail: Supervisor plan (`research → security`), task entity keys appear, Research Agent claims → runs tools → 0G inference → persists; Security Agent claims, **loads the research result from Arkiv**, re-scans independently, runs inference; Supervisor aggregates. The report is spoken back.
-4. **Execution Trace** — open the workflow: tasks with Arkiv task/result entity keys + tx hashes, 0G request IDs (provider, TEE, cost), agent messages. Click **Query** under *Verify against coordination store* to re-read the tasks/results from Arkiv.
-5. **Arkiv Explorer** — browse `Tasks`, `Executions`, `Messages`, `Workflows`: attributes, owner, expiry block, decoded payload.
-6. **Identity & Trust** — try *Register agent* on the Agent Registry without verifying (denied, logged), verify with World ID, retry (ownership bound to your nullifier-derived subject, attestation entity written).
-7. Variations: "Explain what this contract does" (research only), "Is this a rug pull? Only a security review" (security only), "Run research and security review in parallel" (parallel layer), paste your own Solidity, or request a Sepolia ETH transfer and confirm it in MetaMask.
+The agent switches MetaMask to Sepolia and requests the transfer. You approve or reject it in MetaMask. The agent never enters passwords, signs or retries. A returned hash means the transaction was submitted, not that it is confirmed.
 
 ## Scripts
 
 | Script | Purpose |
 |---|---|
-| `npm run dev` | API (tsx watch) + web (Vite) |
-| `npm test` | Unit, orchestrator, API and E2E tests (mocks) |
-| `npm run test:integration` | Live 0G / Arkiv tests (skip without credentials) |
-| `npm run typecheck` | Strict TS for frontend and server |
+| `npm run dev` | API (watch mode) + web UI |
+| `npm test` | Unit, orchestrator, API and end-to-end tests (mocks) |
+| `npm run typecheck` | Strict TypeScript for frontend and server |
 | `npm run build` | Typecheck + production frontend build |
-| `npm run arkiv:check` | Arkiv connectivity / round-trip check |
+| `npm run arkiv:query` | Read-only query of VoxMesh entities on Arkiv |
+| `npm run arkiv:check` | Arkiv connectivity and write round-trip (needs a funded key) |
+| `npm run test:integration` | Live 0G and Arkiv tests (skipped without credentials) |
 
-## Bounty implementation notes
+## Project layout
 
-**0G** — All Supervisor and specialist reasoning goes through `ZeroGInferenceAdapter` (`server/adapters/inference/zerog.ts`) on the OpenAI-compatible router. Each call records `x_0g_trace.request_id`, provider address, billing and `tee_verified` (requests set `verify_tee: true`; optional private trust mode). Request IDs are attached to trace entries, agent results, Arkiv execution records and the workflow record, and shown in the Dashboard and Trace pages.
-
-**Arkiv** — Arkiv is the coordination layer, not a log sink: the Supervisor creates task + delegation-message entities in one batch; workers *discover* tasks by querying `status=open, capability=…`, *claim* them by patching status/claimedBy, and dependent agents *read upstream results from Arkiv entities*. Six typed schemas (`server/adapters/store/arkiv.ts`) with indexed attributes, owner scoping, workspace isolation and per-kind expiry. The Explorer renders live query results with entity keys and expiry.
-
-**World ID** — IDKit v4: server-side RP signature (`@worldcoin/idkit/signing`), `IDKitRequestWidget` on the client, backend forwards the proof unchanged to `/api/v4/verify/{rp_id}`, nonce issuance/replay/expiry checks, hashed nullifier subject, session permissions. Agent registration/ownership is always human-gated; workflows optionally (`WORKFLOW_REQUIRES_HUMAN=true`). A dev bypass exists only behind `WORLD_ID_DEV_BYPASS=true`, is disabled when World ID is configured, and is labelled `dev-bypass` everywhere.
-
-**ENSv2** — Uses the official Mainnet/Sepolia Verifiable Factory, UserRegistry and Permissioned Resolver implementations. The user's wallet owns a configurable parent `.eth` name; agent names are nested below `voxmesh` and the Supervisor, with per-agent text records and key-scoped Enhanced Access Control for endpoint delegation. The ENS manager verifies the resulting records through the chain's Universal Resolver. No placeholder `.eth` labels are treated as registered identities.
+| Path | Contents |
+|---|---|
+| `server/agents/` | Supervisor and specialist agents |
+| `server/runtime/` | Orchestrator, plan validator, message bus, registry, trust scoring |
+| `server/adapters/` | 0G inference, Arkiv store, World ID identity (each with a labelled dev fallback) |
+| `server/phone/` | Paired HTTPS phone listener and mobile page |
+| `src/` | React UI: Dashboard, Command, Trace, Agents, Arkiv Explorer, Identity |
+| `shared/schemas.ts` | Zod schemas shared by server and client |
+| `arkiv/` | Arkiv judging write-ups |
+| `docs/` | API reference, testing, architecture diagram, slides, logo |
 
 ## Limitations
 
-- Contract analysis is static, text-based pattern matching + LLM review of supplied source. It is **not an audit**; reports say so. No on-chain fetching of verified source.
-- Runtime execution state and identity sessions are in memory (lost on restart); task/result/workflow records persist on Arkiv (when live).
-- Claims are exclusive within one runtime (single signer, serialized read-check-write). Multiple independent runtimes would need an on-chain lock or per-agent signers.
-- Arkiv writes take a block (~2 s) each; a full live workflow adds ~15 s of chain latency.
-- Voice input uses the browser Web Speech API (not available in Firefox); text input is always available.
-- ENSv2 writes require an existing ENSv2 parent name, wallet approval, and gas; parent names still using the legacy registry must be migrated before they can manage this hierarchy. Hedera x402 is not implemented.
+- Contract analysis is static pattern matching plus LLM review of the supplied source. **It is not an audit.**
+- All Arkiv entities are written by one runtime signer, so claims are exclusive only within one runtime.
+- Each Arkiv write waits for a block (~2 s), which adds about 15 s to a live workflow.
+- Task entities include the contract source being analysed, so don't paste private code while connected to the public testnet.
+- Workflow state and identity sessions are kept in memory and reset on restart; the records on Arkiv persist.
+- Voice input needs Chrome, Edge or Safari. Text input works everywhere.
+
+## How we used AI
+
+We used AI coding assistants, primarily **Claude Code**, throughout the project: for code across the server, agents and UI, for tests, for documentation (including this README and the `arkiv/` write-ups), and for the architecture diagram, slides and logo. The team directed the work, reviewed the changes and tested them. Inside the product, AI is used at runtime through **0G Compute** inference for planning, analysis and reports. Its output is always validated by deterministic code before use.
+
+## License
+
+[MIT](LICENSE)

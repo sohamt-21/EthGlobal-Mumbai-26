@@ -2,6 +2,7 @@
   "name": "voxmesh",
   "private": true,
   "version": "0.1.0",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "concurrently -k -n api,web -c magenta,cyan \"npm:dev:api\" \"npm:dev:web\"",
@@ -13,7 +14,8 @@
     "test": "vitest run",
     "test:integration": "node --env-file-if-exists=.env node_modules/vitest/vitest.mjs run --config vitest.integration.config.ts",
     "preview": "vite preview --host 127.0.0.1",
-    "arkiv:check": "tsx --env-file-if-exists=.env scripts/arkiv-check.ts"
+    "arkiv:check": "tsx --env-file-if-exists=.env scripts/arkiv-check.ts",
+    "arkiv:query": "tsx scripts/arkiv-query.ts"
   },
   "dependencies": {
     "@arkiv-network/sdk": "^1.0.1",
