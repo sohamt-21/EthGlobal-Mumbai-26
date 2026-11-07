@@ -16,13 +16,14 @@ import {
 } from "../../shared/schemas"
 import { newId, nowIso } from "../lib/async"
 import { AppError, forbidden, notFound, unauthorized } from "../lib/errors"
+import { isLoopback, type PhoneAccess } from "../phone/access"
 import type { Runtime } from "../runtime/container"
 import { SAMPLE_CONTRACTS } from "../tools/samples"
 import { bearer, errorHandler, hasAgentKey, ok, rateLimit } from "./middleware"
 
 const param = (req: Request, name: string): string => String(req.params[name] ?? "")
 
-export function createApp(rt: Runtime) {
+export function createApp(rt: Runtime, phone: PhoneAccess | null = null) {
   const app = express()
   app.disable("x-powered-by")
   app.set("trust proxy", "loopback")
@@ -214,6 +215,23 @@ export function createApp(rt: Runtime) {
       clearInterval(ping)
       unsubscribe()
     })
+  })
+
+  /* ───────────── phone pairing (laptop only) ───────────── */
+
+  const localOnly = (req: Request) => {
+    if (!isLoopback(req.socket.remoteAddress)) throw forbidden("Phone pairing is only available from the laptop itself")
+  }
+  app.get("/api/phone/pairing", async (req, res) => {
+    localOnly(req)
+    if (!phone) return ok(res, { enabled: false, url: null, urls: [], qrSvg: null, certFingerprint: null, port: rt.cfg.PHONE_HTTPS_PORT })
+    ok(res, await phone.pairing())
+  })
+  app.post("/api/phone/pairing/rotate", rateLimit("phone-rotate", 10, 60_000), async (req, res) => {
+    localOnly(req)
+    if (!phone) throw new AppError("PHONE_DISABLED", "Set PHONE_ACCESS_ENABLED=true to pair a phone", 409)
+    await phone.rotate()
+    ok(res, await phone.pairing())
   })
 
   /* ───────────── identity ───────────── */

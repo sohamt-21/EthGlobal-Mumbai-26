@@ -58,6 +58,16 @@ npm run dev
 
 ENSv2 uses the connected browser wallet rather than server environment keys. Open **Agents**, choose Sepolia or Ethereum Mainnet, connect MetaMask, and enter a parent `.eth` name that the connected account owns on ENSv2. The app creates the `voxmesh` namespace, a Supervisor subregistry, and unique Research/Security subnames. It writes text records through an ENSv2 Permissioned Resolver and can grant an address permission to update only one agent's endpoint key. New names default to one-year expiry and are non-transferable; both options can be changed before creation. The wallet must have network gas, and each transaction is confirmed in the wallet.
 
+### Phone voice commands (same Wi-Fi)
+
+Set `PHONE_ACCESS_ENABLED=true` in `.env` and restart `npm run dev`. On the laptop, open **Command → Phone → Pair a phone** and scan the QR code with your phone's camera. The phone page runs the command on the laptop, shows live progress and speaks the reply.
+
+- **HTTPS.** Phones only allow speech recognition on HTTPS pages. The server issues a self-signed certificate for the laptop's Wi-Fi address and serves the phone page on `https://<laptop-ip>:5443/phone` (`PHONE_HTTPS_PORT`). The phone shows a one-time certificate warning; accept it to continue. A new certificate (and one more warning) is issued when the laptop's address changes. If voice is unavailable, the keyboard's dictation key works in the text box.
+- **Pairing.** The QR code holds a random pairing token in the URL fragment, which the browser never sends to the server. The phone stores the token and sends it with every request. **Reset** in the Phone panel invalidates every paired phone. The token and certificate are stored in `~/.voxmesh/phone` (`PHONE_STATE_DIR`).
+- **What the phone can do.** The phone listener exposes only its own page plus: start a workflow, poll that workflow, list sample contracts and a health check. It cannot register agents, write tasks, reach identity endpoints or see the pairing QR. Phone workflows are recorded as initiated by `paired-phone`. If `WORKFLOW_REQUIRES_HUMAN=true`, start workflows from the laptop instead.
+- **Wallet actions.** Wallet requests started from the phone still open MetaMask **on the laptop**, where you approve or reject them.
+- **Network exposure.** The main API (`API_HOST`, default `127.0.0.1`) and the Vite dev server listen only on the laptop itself. Only the paired HTTPS listener is reachable from the network.
+
 ### MetaMask transfer agent
 
 The Command page accepts explicit native Sepolia ETH requests such as `Send 0.001 Sepolia ETH to 0x...`. For a real Chrome window with MetaMask installed, start a dedicated Chrome profile with a localhost debugging port:

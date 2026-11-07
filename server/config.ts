@@ -19,6 +19,13 @@ const optionalLocalEndpoint = optionalString.pipe(
 
 const ConfigSchema = z.object({
   API_PORT: z.coerce.number().int().default(8787),
+  /** Interface for the main API. Keep it on loopback; phones use the paired HTTPS listener instead. */
+  API_HOST: z.string().default("127.0.0.1"),
+  /** Serve the paired phone page on the LAN over HTTPS (self-signed certificate). */
+  PHONE_ACCESS_ENABLED: bool,
+  PHONE_HTTPS_PORT: z.coerce.number().int().min(1).max(65535).default(5443),
+  /** Holds the phone pairing token and certificate; defaults to ~/.voxmesh/phone. */
+  PHONE_STATE_DIR: optionalString,
   CORS_ORIGIN: z.string().default("http://localhost:5173"),
   AGENT_API_KEY: optionalString,
   WORKFLOW_REQUIRES_HUMAN: bool,

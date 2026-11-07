@@ -6,6 +6,7 @@ import type { Workflow } from "../../shared/schemas"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { AGENT_COLOR } from "@/components/Shell"
+import { PhonePairing } from "@/components/PhonePairing"
 import { TraceTimeline } from "@/components/TraceTimeline"
 import { Dot, Empty, KeyChip, Markdown, ModeBadge, Panel, SeverityBadge, StatusBadge, clock } from "@/components/common"
 import { api, ApiError, type Sample } from "@/lib/api"
@@ -211,6 +212,7 @@ export function CommandPage({ onOpenTrace }: { onOpenTrace: (id: string) => void
 
       {/* Right rail: live execution */}
       <div className="flex min-w-0 flex-col gap-5">
+        <PhonePairing />
         <Panel title="Current task" icon={<WorkflowIcon />} actions={active && <StatusBadge status={active.status} />}>
           {!active ? (
             <Empty title="No workflow yet" />

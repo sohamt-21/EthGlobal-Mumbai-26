@@ -60,6 +60,7 @@ export type IdentityConfig = {
   workflowRequiresHuman: boolean
 }
 export type RpContext = { rp_id: string; nonce: string; created_at: number; expires_at: number; signature: string }
+export type PhonePairing = { enabled: boolean; url: string | null; urls: string[]; qrSvg: string | null; certFingerprint: string | null; port: number }
 export type Stored<T> = { key: string; owner: string | null; expiresAtBlock: string | null; data: T }
 
 export const api = {
@@ -86,4 +87,6 @@ export const api = {
   verify: (result: unknown) => call<{ token: string; identity: Identity }>("/api/identity/verify", { method: "POST", body: JSON.stringify(result) }),
   devBypass: () => call<{ token: string; identity: Identity }>("/api/identity/dev-bypass", { method: "POST" }),
   logout: () => call<{ revoked: boolean }>("/api/identity/logout", { method: "POST" }),
+  phonePairing: () => call<PhonePairing>("/api/phone/pairing"),
+  rotatePhonePairing: () => call<PhonePairing>("/api/phone/pairing/rotate", { method: "POST" }),
 }
