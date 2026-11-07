@@ -28,6 +28,10 @@ export function isPredictionMarketIntent(command: string): boolean {
   return /\bpolymarket\b|\bprediction market\b|\bliquidity provider\b|\bmarket making\b/i.test(command)
 }
 
+export function isMinaraRequest(command: string): boolean {
+  return /^\s*minara\b/i.test(command)
+}
+
 export function heuristicPlan(command: string, hasSource: boolean): ExecutionPlan {
   const c = command.toLowerCase()
   const transferIntent = isNativeTransferIntent(command)
@@ -49,6 +53,14 @@ export function heuristicPlan(command: string, hasSource: boolean): ExecutionPla
         steps: [],
         directAnswer: error instanceof Error ? error.message : "Specify a valid Sepolia ETH transfer.",
       }
+    }
+  }
+  if (isMinaraRequest(command)) {
+    return {
+      intent: "minara_assistant",
+      reasoning: "The user explicitly requested a Minara service; execute exactly one paid API request and never submit a trade.",
+      steps: [{ id: "minara", type: "minara_assistant", capability: "minara_assistant", description: `Run the explicitly requested Minara service: ${command.slice(0, 400)}`, dependsOn: [] }],
+      directAnswer: null,
     }
   }
   if (isPredictionMarketIntent(command)) {

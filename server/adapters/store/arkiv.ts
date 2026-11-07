@@ -426,6 +426,11 @@ export class ArkivCoordinationStore implements CoordinationStore {
     return rows.map((r) => toStored<ExecutionRecord>(r))
   }
 
+  async listWorkflows(filter: { limit?: number } = {}): Promise<Stored<WorkflowRecord>[]> {
+    const rows = await this.scopedQuery("list workflows", "voxmesh.workflow.v1", [], filter.limit ?? 100)
+    return rows.map((row) => toStored<WorkflowRecord>(row))
+  }
+
 
   async listMessages(filter: { workflowId?: string; limit?: number }) {
     const conditions: Expression[] = []

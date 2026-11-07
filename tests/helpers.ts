@@ -1,6 +1,7 @@
 import { MockInferenceAdapter } from "../server/adapters/inference/mock"
 import type { InferenceAdapter, InferenceRequest, InferenceResponse } from "../server/adapters/inference/types"
 import { MemoryCoordinationStore } from "../server/adapters/store/memory"
+import type { CoordinationStore } from "../server/adapters/store/types"
 import { testConfig, type AppConfig } from "../server/config"
 import { createRuntime } from "../server/runtime/container"
 
@@ -8,9 +9,9 @@ export const FULL_DEMO_COMMAND =
   "Start a multi-agent workflow. Ask the research agent to analyse this smart contract and ask the security agent to review the findings. Return a combined report."
 
 export async function makeRuntime(
-  opts: { cfg?: Partial<Record<keyof AppConfig, string>>; inference?: InferenceAdapter; fetchImpl?: typeof fetch } = {},
+  opts: { cfg?: Partial<Record<keyof AppConfig, string>>; inference?: InferenceAdapter; fetchImpl?: typeof fetch; store?: CoordinationStore } = {},
 ) {
-  const store = new MemoryCoordinationStore()
+  const store = opts.store ?? new MemoryCoordinationStore()
   const inference = opts.inference ?? new MockInferenceAdapter(5)
   const rt = await createRuntime(testConfig(opts.cfg), { store, inference, fetchImpl: opts.fetchImpl })
   return { rt, store, inference }

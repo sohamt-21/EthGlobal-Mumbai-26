@@ -8,7 +8,7 @@ Run: `npm test` (unit/API/E2E, mocks + in-memory store) · `npm run test:integra
 |---|---|---|
 | `tests/unit/tools-planner.test.ts` — static scanner, tool allowlist, planner routing, Polymarket market-plan routing, wallet transfer parsing, plan validation | 16 | ✅ pass |
 | `tests/unit/adapters.test.ts` — 0G response parsing/headers/retryability, store claim semantics, localhost-only MetaMask CDP config, World ID verify/replay/expiry/dev-bypass labelling | 11 | ✅ pass |
-| `tests/orchestrator.test.ts` — sequential, parallel, selective routing, Polymarket research→LP simulation, wallet routing/fail-closed behavior, retries, failure recovery, planner fallback, call budget | 13 | ✅ pass |
+| `tests/orchestrator.test.ts` — sequential, parallel, selective routing, Polymarket research→LP simulation, Minara routing/no-key behavior, persisted stats after restart, wallet routing/fail-closed behavior, retries, failure recovery | 16 | ✅ pass |
 | `tests/api.e2e.test.ts` — health/modes, agent discovery, validation envelope, protected registration, human-gated workflows, external worker ownership, research/security and Polymarket simulation E2E | 8 | ✅ pass |
 | `tests/ensv2.test.ts` — hierarchy construction, duplicate validation, per-agent text keys, transfer permissions | 4 | ✅ pass |
 | `tests/integration/live.test.ts` — real 0G call, real Arkiv create/query/claim, full live workflow | 3 | ⏭ skipped (no credentials in this environment) |

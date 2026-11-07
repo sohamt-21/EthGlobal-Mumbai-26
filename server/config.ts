@@ -30,6 +30,7 @@ const ConfigSchema = z.object({
   METAMASK_PROFILE_PATH: optionalString,
   METAMASK_CDP_ENDPOINT: optionalLocalEndpoint,
   METAMASK_CONFIRMATION_TIMEOUT_MS: z.coerce.number().int().min(30_000).default(300_000),
+  MINARA_API_KEY: optionalString,
 
   INFERENCE_MODE: z.enum(["auto", "zerog", "mock"]).default("auto"),
   ZG_API_KEY: optionalString,

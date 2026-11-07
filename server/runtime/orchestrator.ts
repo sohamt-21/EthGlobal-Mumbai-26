@@ -11,8 +11,8 @@ import type {
   Workflow,
 } from "../../shared/schemas"
 import type { InferenceAdapter } from "../adapters/inference/types"
-import type { CoordinationStore, ExecutionRecord } from "../adapters/store/types"
-import { heuristicAggregate, heuristicPlan, isPredictionMarketIntent } from "../agents/heuristics"
+import type { CoordinationStore, ExecutionRecord, WorkflowRecord } from "../adapters/store/types"
+import { heuristicAggregate, heuristicPlan, isMinaraRequest, isPredictionMarketIntent } from "../agents/heuristics"
 import type { SupervisorAgent } from "../agents/supervisor"
 import { isNativeTransferIntent, parseSepoliaNativeTransfer, type SepoliaNativeTransfer } from "../agents/wallet-transfer"
 import { extractMarketQuery } from "../agents/prediction-market"
@@ -92,18 +92,44 @@ export class Orchestrator {
     return [...this.workflows.values()].reverse().map((w) => this.view(w))
   }
 
-  stats(agentCount: number): RuntimeStats {
-    const all = [...this.workflows.values()]
-    const tasks = all.flatMap((w) => w.tasks)
-    const inference = all.flatMap((w) => w.inference)
+  async stats(agentCount: number): Promise<RuntimeStats> {
+    const currentWorkflows = [...this.workflows.values()]
+    let persistedTasks: Task[] = []
+    let persistedWorkflows: WorkflowRecord[] = []
+    try {
+      const [taskRows, workflowRows] = await Promise.all([
+        this.d.store.queryTasks({ limit: 100 }),
+        this.d.store.listWorkflows({ limit: 100 }),
+      ])
+      persistedTasks = taskRows.map((row) => row.data)
+      persistedWorkflows = workflowRows.map((row) => row.data)
+    } catch {
+      // Keep current-process stats available when the coordination store is temporarily offline.
+    }
+
+    const tasksById = new Map<string, Task>(persistedTasks.map((task) => [task.id, task]))
+    for (const workflow of currentWorkflows) {
+      for (const task of workflow.tasks) tasksById.set(task.id, task)
+    }
+    const tasks = [...tasksById.values()]
+    const now = Date.now()
+    const persistedWorkflowIds = new Set(persistedWorkflows.map((workflow) => workflow.workflowId))
+    const workflowIds = new Set([...persistedWorkflowIds, ...currentWorkflows.map((workflow) => workflow.id)])
+    const inferenceCalls = persistedWorkflows.reduce((total, workflow) => total + workflow.inferenceRequestIds.length, 0) +
+      currentWorkflows.filter((workflow) => !persistedWorkflowIds.has(workflow.id)).reduce((total, workflow) => total + workflow.inference.length, 0)
+    const inferenceTimes = [
+      ...persistedWorkflows.map((workflow) => workflow.lastInferenceAt ?? (workflow.inferenceRequestIds.length ? workflow.completedAt : null)),
+      ...currentWorkflows.filter((workflow) => !persistedWorkflowIds.has(workflow.id)).map((workflow) => workflow.inference.at(-1)?.timestamp ?? null),
+    ].filter((timestamp): timestamp is string => Boolean(timestamp))
+    const lastInferenceAt = inferenceTimes.sort((a, b) => Date.parse(a) - Date.parse(b)).at(-1) ?? null
     return {
       agents: agentCount,
-      activeTasks: tasks.filter((t) => ["open", "claimed", "running"].includes(t.status)).length,
+      activeTasks: tasks.filter((task) => ["open", "claimed", "running"].includes(task.status) && Date.parse(task.expiresAt) > now).length,
       completedTasks: tasks.filter((t) => t.status === "completed").length,
       failedTasks: tasks.filter((t) => t.status === "failed").length,
-      workflows: all.length,
-      inferenceCalls: inference.length,
-      lastInferenceAt: inference.at(-1)?.timestamp ?? null,
+      workflows: workflowIds.size,
+      inferenceCalls,
+      lastInferenceAt,
     }
   }
 
@@ -191,7 +217,8 @@ export class Orchestrator {
   private async run(wf: Workflow, input: ExecuteWorkflowInput) {
     const { cfg } = this.d
     const walletTransferIntent = isNativeTransferIntent(wf.command)
-    const predictionMarketIntent = isPredictionMarketIntent(wf.command)
+    const minaraIntent = isMinaraRequest(wf.command)
+    const predictionMarketIntent = !minaraIntent && isPredictionMarketIntent(wf.command)
     let walletTransfer: SepoliaNativeTransfer | null = null
     if (walletTransferIntent) {
       try {
@@ -200,7 +227,7 @@ export class Orchestrator {
         walletTransfer = null
       }
     }
-    const { source, sampleId } = walletTransferIntent || predictionMarketIntent ? { source: null, sampleId: null } : this.resolveSource(input)
+    const { source, sampleId } = walletTransferIntent || predictionMarketIntent || minaraIntent ? { source: null, sampleId: null } : this.resolveSource(input)
     if (source && source.length > 24_000) throw new AppError("SOURCE_TOO_LARGE", "Contract source must be under 24 KB", 400)
     if (source) this.sources.set(wf.id, source)
 
@@ -217,6 +244,8 @@ export class Orchestrator {
     const available = await this.d.registry.availableCapabilities()
     let plan: ExecutionPlan
     if (walletTransferIntent) {
+      plan = heuristicPlan(wf.command, false)
+    } else if (minaraIntent) {
       plan = heuristicPlan(wf.command, false)
     } else if (predictionMarketIntent) {
       plan = heuristicPlan(wf.command, false)
@@ -239,7 +268,7 @@ export class Orchestrator {
       plan = heuristicPlan(wf.command, Boolean(source))
       this.trace(wf, { agentId: "supervisor", action: "plan.fallback", status: "error", detail: `Planner inference unavailable (${errorMessage(error)}); using deterministic planner` })
     }
-    const maxSteps = Math.max(0, cfg.MAX_AGENT_CALLS_PER_WORKFLOW - (walletTransfer || predictionMarketIntent ? 0 : 1))
+    const maxSteps = Math.max(0, cfg.MAX_AGENT_CALLS_PER_WORKFLOW - (walletTransfer || predictionMarketIntent || minaraIntent ? 0 : 1))
     const finalCheck = validatePlan(plan, available, maxSteps, Boolean(source))
     if (!finalCheck.ok) {
       // e.g. analysis requested without source: answer instead of delegating
@@ -278,7 +307,19 @@ export class Orchestrator {
     for (const step of plan.steps) {
       const candidates = await this.d.registry.discover(step.capability)
       if (!candidates.length) throw new AppError("NO_AGENT", `No agent available for ${step.capability}`, 503)
-      const assignee = candidates[0].agent
+      const assessed = candidates.map(({ agent }) => ({ agent, report: this.d.registry.trustReport(agent.id) }))
+      for (const candidate of assessed) {
+        this.trace(wf, {
+          agentId: "supervisor",
+          action: "agent.trust_checked",
+          status: candidate.report.decision === "do_not_call" ? "error" : "info",
+          detail: `${candidate.agent.id}: ${candidate.report.decision.replaceAll("_", " ")} (score ${candidate.report.score}/100)`,
+          data: { agentId: candidate.agent.id, decision: candidate.report.decision, score: candidate.report.score, riskFlags: candidate.report.riskFlags },
+        })
+      }
+      const eligible = assessed.filter(({ report }) => report.decision !== "do_not_call")
+      if (!eligible.length) throw new AppError("NO_TRUSTED_AGENT", `No agent passed the trust check for ${step.capability}`, 503)
+      const { agent: assignee, report: trustReport } = eligible[0]
       const task: WorkflowTask = {
         id: newId("task"),
         workflowId: wf.id,
@@ -298,6 +339,7 @@ export class Orchestrator {
           sourceHash: source ? createHash("sha256").update(source).digest("hex").slice(0, 16) : null,
           transfer: step.type === "wallet_transfer" ? walletTransfer : null,
           marketQuery: step.type === "market_research" ? extractMarketQuery(wf.command) : null,
+          trustReport,
         },
         resultEntityKey: null,
         createdAt: nowIso(),
@@ -314,7 +356,7 @@ export class Orchestrator {
         from: "supervisor",
         to: assignee.id,
         type: "task.delegate",
-        payload: { capability: step.capability, description: step.description, dependsOn: task.dependsOn },
+        payload: { capability: step.capability, description: step.description, dependsOn: task.dependsOn, trustDecision: trustReport.decision, trustScore: trustReport.score },
       })
       delegations.push(msg)
     }
@@ -389,6 +431,26 @@ export class Orchestrator {
         overallRisk: null,
         riskScore: null,
         disclaimer: "MetaMask signed this transaction only after user approval. Submission does not guarantee confirmation on-chain.",
+      }
+      await this.finish(wf, success ? "completed" : "failed")
+      return
+    }
+    if (plan.intent === "minara_assistant") {
+      const minaraResult = byStep("minara")
+      const success = minaraResult?.status === "success"
+      const service = typeof minaraResult?.result.service === "string" ? minaraResult.result.service : "Minara"
+      const executionMode = typeof minaraResult?.result.executionMode === "string" ? minaraResult.result.executionMode : "analysis-only"
+      const output = success ? JSON.stringify(minaraResult!.result.data, null, 2).slice(0, 5000) : null
+      const detail = success
+        ? `**Service:** ${service}\n\n\`\`\`json\n${output}${output!.length >= 5000 ? "\n...response truncated" : ""}\n\`\`\`\n\nNo transaction was submitted.`
+        : `No Minara result was returned. ${minaraResult?.error?.message ?? "The Minara request failed."}`
+      wf.finalReport = {
+        title: success ? `Minara ${service}` : "Minara request failed",
+        markdown: `**Mode:** ${executionMode}\n\n${detail}`,
+        spokenSummary: success ? `Minara ${service} completed. No transaction was submitted.` : detail,
+        overallRisk: null,
+        riskScore: null,
+        disclaimer: "Minara output is external analysis. Swap and perpetual results are suggestions only; this agent never signs or submits a trade.",
       }
       await this.finish(wf, success ? "completed" : "failed")
       return
@@ -469,6 +531,7 @@ export class Orchestrator {
         riskScore: wf.finalReport?.riskScore ?? null,
         initiatedBy: wf.initiatedBy.subject,
         inferenceRequestIds: wf.inference.map((i) => i.requestId),
+        lastInferenceAt: wf.inference.at(-1)?.timestamp ?? null,
         startedAt: wf.startedAt,
         completedAt: nowIso(),
       })
@@ -549,7 +612,7 @@ export class Orchestrator {
           )
         },
         {
-          retries: task.type === "wallet_transfer" ? 0 : cfg.AGENT_MAX_RETRIES,
+          retries: task.type === "wallet_transfer" || task.type === "minara_assistant" ? 0 : cfg.AGENT_MAX_RETRIES,
           onRetry: (n, e) =>
             this.trace(wf, { agentId: agent.id, taskId: task.id, action: "task.retry", status: "error", detail: `Attempt ${n} failed (${errorMessage(e)}); retrying` }),
         },

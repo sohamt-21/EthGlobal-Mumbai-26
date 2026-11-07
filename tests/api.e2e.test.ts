@@ -22,8 +22,39 @@ describe("API", () => {
   it("lists the registered agents with their store entity keys", async () => {
     const { http } = await app()
     const res = await request(http).get("/api/agents")
-    expect(res.body.data.map((a: { id: string }) => a.id)).toEqual(["supervisor", "research", "security", "metamask", "liquidity"])
+      expect(res.body.data.map((a: { id: string }) => a.id)).toEqual(["supervisor", "research", "security", "metamask", "liquidity", "minara"])
     expect(res.body.data.every((a: { entityKey: string }) => a.entityKey.startsWith("local:agent"))).toBe(true)
+  })
+
+  it("returns an honest AgentRank report for a runtime agent", async () => {
+    const { http } = await app()
+    const response = await request(http).get("/api/agents/research/trust")
+    expect(response.status).toBe(200)
+    expect(response.body.data).toMatchObject({
+      agentId: "research",
+      decision: "review_before_call",
+      identity: { erc8004AgentId: null, erc8004Registered: null, agentKitHumanBacked: null },
+      transactability: { x402Supported: null, status: "unknown" },
+    })
+    expect((await request(http).get("/api/agents/not-an-agent/trust")).status).toBe(404)
+  })
+
+  it("rejects task claims from agents with a do-not-call report", async () => {
+    const { http, rt } = await app()
+    const key = { "x-agent-key": "test-agent-key" }
+    const created = await request(http).post("/api/tasks").set(key).send({
+      type: "research",
+      description: "Review the contract metadata",
+      requiredCapability: "contract_research",
+    })
+    rt.registry.setStatus("research", "offline")
+    const rejected = await request(http)
+      .post(`/api/tasks/${created.body.data.entityKey}/claim`)
+      .set(key)
+      .send({ agentId: "research" })
+
+    expect(rejected.status).toBe(403)
+    expect(rejected.body.error.message).toContain("failed the trust check")
   })
 
   it("validates input with a consistent error envelope", async () => {
@@ -69,7 +100,9 @@ describe("API", () => {
     const open = await request(http).get("/api/tasks").query({ status: "open", capability: "contract_research" })
     expect(open.body.data.map((t: { key: string }) => t.key)).toContain(entityKey)
     expect((await request(http).post(`/api/tasks/${entityKey}/claim`).set(key).send({ agentId: "security" })).status).toBe(403) // wrong capability
-    expect((await request(http).post(`/api/tasks/${entityKey}/claim`).set(key).send({ agentId: "research" })).status).toBe(200)
+    const claimed = await request(http).post(`/api/tasks/${entityKey}/claim`).set(key).send({ agentId: "research" })
+    expect(claimed.status).toBe(200)
+    expect(claimed.body.data.trustReport.decision).toBe("review_before_call")
     expect((await request(http).post(`/api/tasks/${entityKey}/claim`).set(key).send({ agentId: "research" })).status).toBe(409)
     expect((await request(http).post(`/api/tasks/${entityKey}/complete`).set(key).send({ agentId: "security", status: "completed", output: {} })).status).toBe(403)
     const done = await request(http).post(`/api/tasks/${entityKey}/complete`).set(key).send({ agentId: "research", status: "completed", output: { note: "ok" } })
@@ -87,6 +120,7 @@ describe("API", () => {
     expect(wf.tasks.every((t: { input: Record<string, unknown> }) => t.input.source === undefined && typeof t.input.sourceBytes === "number")).toBe(true)
 
     const trace = (await request(http).get(`/api/executions/${wf.id}/trace`)).body.data
+    expect(trace.some((t: { action: string; data?: { decision?: string } }) => t.action === "agent.trust_checked" && t.data?.decision === "review_before_call")).toBe(true)
     expect(trace.filter((t: { inferenceRequestId: string | null }) => t.inferenceRequestId?.startsWith("mock_")).length).toBeGreaterThanOrEqual(4)
     expect(trace.some((t: { action: string; arkivEntityId: string | null }) => t.action === "task.claimed" && t.arkivEntityId)).toBe(true)
 
@@ -102,7 +136,7 @@ describe("API", () => {
     expect(explorer.entities.length).toBe(2)
 
     const stats = (await request(http).get("/api/runtime/stats")).body.data
-    expect(stats).toMatchObject({ agents: 5, completedTasks: 2, failedTasks: 0, inferenceCalls: 4 })
+      expect(stats).toMatchObject({ agents: 6, completedTasks: 2, failedTasks: 0, inferenceCalls: 4 })
   })
 
   it("E2E: Polymarket research and LP quotes run through the API without placing orders", async () => {

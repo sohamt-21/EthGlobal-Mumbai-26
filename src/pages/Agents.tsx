@@ -1,6 +1,6 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { motion } from "motion/react"
-import { Bot, FileCode2, Fingerprint, Loader2, ShieldCheck, TrendingUp, Wallet, Wrench, X } from "lucide-react"
+import { Bot, FileCode2, Fingerprint, Loader2, ShieldCheck, Sparkles, TrendingUp, Wallet, Wrench, X } from "lucide-react"
 import { cn } from "cn"
 import { Button } from "@/components/ui/button"
 import { AGENT_COLOR } from "@/components/Shell"
@@ -8,8 +8,9 @@ import { Dot, KeyChip, Panel, timeAgo } from "@/components/common"
 import { EnsAgentNamespace } from "@/components/EnsAgentNamespace"
 import { api, ApiError, type AgentView } from "@/lib/api"
 import { useRuntime } from "@/lib/runtime"
+import type { AgentTrustReport } from "../../shared/schemas"
 
-const ICON = { supervisor: Bot, research: FileCode2, security: ShieldCheck, metamask: Wallet, liquidity: TrendingUp } as const
+const ICON = { supervisor: Bot, research: FileCode2, security: ShieldCheck, metamask: Wallet, liquidity: TrendingUp, minara: Sparkles } as const
 
 export function AgentsPage() {
   const { agents, identity, refresh } = useRuntime()
@@ -83,6 +84,20 @@ export function AgentsPage() {
 function AgentDetail({ agent, ensName, canRegister, onClose, onChanged }: { agent: AgentView; ensName: string | null; canRegister: boolean; onClose: () => void; onChanged: () => void }) {
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
+  const [trustReport, setTrustReport] = useState<AgentTrustReport | null>(null)
+  const [trustError, setTrustError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let active = true
+    setTrustReport(null)
+    setTrustError(null)
+    void api.agentTrust(agent.id).then((report) => {
+      if (active) setTrustReport(report)
+    }).catch(() => {
+      if (active) setTrustError("Trust report is unavailable")
+    })
+    return () => { active = false }
+  }, [agent.id])
 
   async function register() {
     setBusy(true)
@@ -159,6 +174,39 @@ function AgentDetail({ agent, ensName, canRegister, onClose, onChanged }: { agen
           </Button>
           {msg && <div className="text-[11.5px] text-foreground/80">{msg}</div>}
         </div>
+        <section className="grid gap-3 border-t border-white/[0.07] pt-4 lg:col-span-3" aria-label="Agent trust report">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <div className="text-[12.5px] font-medium">AgentRank trust report</div>
+            {trustReport && <div className="vx-mono text-[11px] text-muted-foreground">{trustReport.score}/100 · {trustReport.decision.replaceAll("_", " ")}</div>}
+          </div>
+          {trustError && <div className="text-[11.5px] text-amber-300">{trustError}</div>}
+          {!trustReport && !trustError && <div className="text-[11.5px] text-muted-foreground">Assessing available evidence…</div>}
+          {trustReport && <>
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+              {([
+                ["Registry profile", trustReport.axes.registryProfile],
+                ["Reputation quality", trustReport.axes.reputationQuality],
+                ["ENS identity", trustReport.axes.ensIdentity],
+                ["Human accountability", trustReport.axes.humanAccountability],
+              ] as const).map(([label, axis]) => (
+                <div key={label} className="border-l border-white/[0.1] pl-2.5">
+                  <div className="flex justify-between gap-2 text-[11px]"><span>{label}</span><span className="vx-mono text-muted-foreground">{axis.score}/25</span></div>
+                  <div className="mt-0.5 text-[10px] text-muted-foreground">{axis.status}</div>
+                  {axis.signals.map((signal) => <div key={signal} className="mt-1 text-[10.5px] leading-relaxed text-foreground/70">{signal}</div>)}
+                </div>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-x-5 gap-y-1 text-[10.5px] text-muted-foreground">
+              <span>ERC-8004: {trustReport.identity.erc8004Registered === null ? "not connected" : trustReport.identity.erc8004Registered ? "registered" : "not registered"}</span>
+              <span>AgentKit: {trustReport.identity.agentKitHumanBacked === null ? "not verified" : trustReport.identity.agentKitHumanBacked ? "human-backed" : "not human-backed"}</span>
+              <span>x402: {trustReport.transactability.status}</span>
+              <span>Runtime outcomes: {trustReport.evidence.completedTasks} completed / {trustReport.evidence.failedTasks} failed</span>
+            </div>
+            <ul className="grid gap-1 text-[10.5px] text-amber-200/80 sm:grid-cols-2">
+              {trustReport.riskFlags.map((flag) => <li key={flag}>{flag}</li>)}
+            </ul>
+          </>}
+        </section>
       </div>
     </Panel>
   )

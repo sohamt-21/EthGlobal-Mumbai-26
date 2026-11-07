@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { MockInferenceAdapter } from "../server/adapters/inference/mock"
 import { AppError } from "../server/lib/errors"
+import { MemoryCoordinationStore } from "../server/adapters/store/memory"
 import { FULL_DEMO_COMMAND, makeRuntime, ScriptedInference } from "./helpers"
 
 const initiator = { subject: "test", verified: false, provider: "none" }
@@ -51,6 +52,21 @@ describe("orchestrator", () => {
     expect(wf.status).toBe("completed")
     expect(wf.tasks).toHaveLength(0)
     expect(wf.finalReport?.markdown).toMatch(/Research Agent/)
+  })
+
+  it("rebuilds completed-task and inference totals from the coordination store after runtime restart", async () => {
+    const store = new MemoryCoordinationStore()
+    const first = await makeRuntime({ store, inference: new MockInferenceAdapter(1) })
+    const previous = await first.rt.orchestrator.execute(
+      { command: "Explain what this contract does", sampleContractId: "mesh-token", channel: "text" },
+      initiator,
+    )
+    expect(previous.status).toBe("completed")
+
+    const restarted = await makeRuntime({ store, inference: new MockInferenceAdapter(1) })
+    const stats = await restarted.rt.orchestrator.stats(restarted.rt.registry.list().length)
+    expect(stats).toMatchObject({ activeTasks: 0, completedTasks: 1, failedTasks: 0, workflows: 1, inferenceCalls: 3 })
+    expect(stats.lastInferenceAt).not.toBeNull()
   })
 
   it("routes Sepolia ETH sends only to the MetaMask agent and fails closed when it is not configured", async () => {
@@ -130,6 +146,65 @@ describe("orchestrator", () => {
     expect(wf.finalReport?.markdown).toMatch(/Simulation only|no orders were submitted/i)
     expect(wf.trace.every((trace) => trace.txHash === null)).toBe(true)
     expect(await store.listExecutions({ workflowId: wf.id })).toHaveLength(2)
+  })
+
+  it("routes explicit Minara commands to one paid API call and never executes suggestions", async () => {
+    const seen: { url: string; authorization: string | undefined; body: Record<string, unknown> }[] = []
+    const fetchImpl = (async (input: string | URL | Request, init?: RequestInit) => {
+      const headers = init?.headers as Record<string, string> | undefined
+      const requestBody = JSON.parse(String(init?.body)) as Record<string, unknown>
+      const url = String(input)
+      seen.push({ url, authorization: headers?.authorization, body: requestBody })
+      const path = new URL(url).pathname
+      const data = path.endsWith("prediction-market-ask")
+        ? { predictions: [{ outcome: "Yes", yesProb: 0.55, noProb: 0.45 }], reasoning: "Mock Minara analysis" }
+        : path.endsWith("/chat")
+          ? { content: "Mock DeFi guidance" }
+          : path.endsWith("intent-to-swap-tx")
+            ? { transaction: { chain: "base", to: "0x000000000000000000000000000000000000dEaD" } }
+            : { side: "long", entryPrice: 100, stopLossPrice: 95, takeProfitPrice: 110, confidence: 50 }
+      return new Response(JSON.stringify(data), { status: 200, headers: { "content-type": "application/json" } })
+    }) as typeof fetch
+    const { rt } = await makeRuntime({ cfg: { MINARA_API_KEY: "test-minara-key" }, fetchImpl })
+    const commands = [
+      "Minara prediction: https://polymarket.com/event/test-market",
+      "Minara defi: Explain the risks of providing liquidity to a pool.",
+      "Minara swap: Swap 10 USDC to ETH wallet 0x000000000000000000000000000000000000dEaD chain base",
+      "Minara perp: BTC",
+    ]
+    const workflows = []
+    for (const command of commands) {
+      workflows.push(await rt.orchestrator.execute({ command, channel: "text" }, initiator))
+    }
+
+    expect(workflows.every((workflow) => workflow.status === "completed" && workflow.plan?.intent === "minara_assistant")).toBe(true)
+    expect(seen.map((request) => new URL(request.url).pathname)).toEqual([
+      "/v1/developer/prediction-market-ask",
+      "/v1/developer/chat",
+      "/v1/developer/intent-to-swap-tx",
+      "/v1/developer/perp-trading-suggestion",
+    ])
+    expect(seen.every((request) => request.authorization === "Bearer test-minara-key")).toBe(true)
+    expect(seen[2].body.walletAddress).toBe("0x000000000000000000000000000000000000dEaD")
+    expect(seen[3].body).toMatchObject({ marginUSD: 10, leverage: 1 })
+    expect(workflows.every((workflow) => workflow.tasks.every((task) => task.type === "minara_assistant"))).toBe(true)
+    expect(workflows.every((workflow) => !workflow.tasks.some((task) => task.type === "wallet_transfer"))).toBe(true)
+    expect(workflows[2].finalReport?.markdown).toMatch(/unsigned-suggestion-only/)
+    expect(workflows[3].finalReport?.markdown).toMatch(/suggestion-only/)
+  })
+
+  it("fails Minara requests before network access when its API key is not configured", async () => {
+    let fetchCalls = 0
+    const fetchImpl = (async () => {
+      fetchCalls++
+      return new Response("{}", { status: 200 })
+    }) as typeof fetch
+    const { rt } = await makeRuntime({ fetchImpl })
+    const workflow = await rt.orchestrator.execute({ command: "Minara prediction: https://polymarket.com/event/test", channel: "text" }, initiator)
+
+    expect(workflow.status).toBe("failed")
+    expect(workflow.finalReport?.markdown).toMatch(/MINARA_API_KEY/)
+    expect(fetchCalls).toBe(0)
   })
 
   it("runs independent tasks in parallel", async () => {

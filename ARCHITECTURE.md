@@ -21,8 +21,9 @@
  │    ├─ ResearchAgent    Solidity tools + public Polymarket Gamma reads      │
  │    ├─ SecurityAgent    tools: solidity.static_scan (independent re-check)  │
  │    ├─ LiquidityAgent   deterministic quotes; simulation only                │
- │    ├─ LiquidityAgent   deterministic quotes; simulation only                │
- │    └─ MetaMaskAgent    Playwright → visible Chrome → user-approved send    │
+ │    ├─ MetaMaskAgent    Playwright → visible Chrome → user-approved send    │
+ │    └─ MinaraAgent      API-key research / unsigned suggestions              │
+ │    └─ MinaraAgent      API-key research/suggestions; no execution          │
  │  AgentMessageBus (Supervisor–Worker topology, correlation ids)             │
  │  AgentRegistry (metadata in store, runtime status in memory)               │
  │  ToolRegistry (per-agent allowlist, deterministic tools only)              │
@@ -107,6 +108,10 @@ The Research Agent queries Polymarket's public Gamma API and persists an open ma
 Agent consumes that stored result and computes fixed-cap two-sided quotes. It has no order-placement adapter, no
 wallet access, and always returns `simulationOnly: true`. Sepolia test transfers are separate and never interpreted
 as Polymarket collateral.
+
+Explicit `Minara:` commands call one documented Minara API-key endpoint per workflow. The API key is server-side and
+requests consume Minara account credits; the agent does not retry paid calls. Prediction and DeFi responses are
+analysis only. Swap-intent and perpetual responses are suggestions only and are never passed to MetaMask or submitted.
 
 Prediction-market demo prompts use a deterministic two-step plan: the Research Agent reads a matching open market
 from Polymarket's public Gamma search API; the Liquidity Simulation Agent consumes the persisted research result and

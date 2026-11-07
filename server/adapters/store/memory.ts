@@ -130,6 +130,10 @@ export class MemoryCoordinationStore implements CoordinationStore {
       .slice(0, filter.limit ?? 100)
   }
 
+  async listWorkflows(filter: { limit?: number } = {}) {
+    return this.all<WorkflowRecord>("workflow").slice(0, filter.limit ?? 100)
+  }
+
   async listMessages(filter: { workflowId?: string; limit?: number }) {
     return this.all<AgentMessage>("message")
       .filter((m) => !filter.workflowId || m.data.workflowId === filter.workflowId)

@@ -9,6 +9,7 @@ import type {
   InferenceMetadata,
   IntegrationStatus,
   RuntimeStats,
+  AgentTrustReport,
   Workflow,
 } from "../../shared/schemas"
 
@@ -66,6 +67,7 @@ export const api = {
   integrations: (refresh = false) => call<IntegrationStatus[]>(`/api/integrations/status${refresh ? "?refresh=1" : ""}`),
   stats: () => call<RuntimeStats>("/api/runtime/stats"),
   agents: () => call<AgentView[]>("/api/agents"),
+  agentTrust: (id: string) => call<AgentTrustReport>(`/api/agents/${encodeURIComponent(id)}/trust`),
   registerAgent: (input: { id: string; ensName?: string; endpoint?: string }) =>
     call<AgentView>("/api/agents/register", { method: "POST", body: JSON.stringify(input) }),
   samples: () => call<Sample[]>("/api/samples"),

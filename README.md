@@ -74,11 +74,18 @@ In either mode the agent requests a switch to Sepolia and verifies the active ch
 
 ### Prediction-market LP demo
 
-Run `Simulate a Polymarket liquidity plan for "Another S&P 500 Company buys Bitcoin by December 31, 2026"` from Command. The Research Agent reads a matching open market using Polymarket's free, public Gamma search API; the Liquidity Simulation Agent calculates four two-sided quotes capped at $5 each ($20 total). This is a point-in-time dry run: it does not call Polymarket's order API, use collateral, or submit orders. Any Sepolia test transfer is a separate demo action and is not Polymarket funding. The 8004scan agents supplied for this feature had no callable service, so the workflow uses the public market-data API and a local simulator instead.
+In the Command page, run `Simulate a Polymarket liquidity plan for "Another S&P 500 Company buys Bitcoin by December 31, 2026"`. The Research Agent reads the matching open market from Polymarket’s public Gamma API; the Liquidity Simulation Agent calculates four two-sided quotes capped at $5 each ($20 total). This is strictly a dry run: it does not use the order API, collateral, or wallet agent. A Sepolia test transfer is separate and is not Polymarket funding. The 8004scan listings checked for this demo did not provide callable agent services.
 
-### Prediction-market LP demo
+### Minara API agent
 
-In the Command page, run `Simulate a Polymarket liquidity plan for "Another S&P 500 Company buys Bitcoin by December 31, 2026"`. The Research Agent reads the matching open market from Polymarket’s public Gamma search API; the Liquidity Simulation Agent uses that point-in-time snapshot to calculate four two-sided quotes capped at $5 each ($20 total). No Polymarket account, order endpoint, collateral, or paid Otto x402 call is used. The supplied Otto 8004 agent listings are not callable services. This workflow is strictly a dry run: it creates no orders and does not invoke the wallet agent. Any Sepolia transfer is a separate test and is not Polymarket funding.
+Minara’s documented API-key endpoints are available to Pro/Partner accounts and consume Minara credits. Set `MINARA_API_KEY` in the server `.env` file; keep it server-side and never share it in chat. Invoke one service explicitly from Command:
+
+- `Minara prediction: https://polymarket.com/event/<slug>`
+- `Minara defi: <question>`
+- `Minara swap: <intent> wallet <0x-address> chain <name>`
+- `Minara perp: <symbol>`
+
+Each workflow makes at most one Minara call and does not retry paid requests. Swap and perpetual responses are suggestions only; this agent never signs or submits them. The local Polymarket LP workflow remains free and simulation-only.
 
 Check connectivity:
 

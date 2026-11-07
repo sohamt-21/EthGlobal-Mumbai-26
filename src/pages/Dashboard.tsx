@@ -40,10 +40,10 @@ export function DashboardPage({ onRun, onOpenTrace }: { onRun: () => void; onOpe
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         <Stat label="Agents" value={stats?.agents ?? "—"} icon={<Bot />} hint="registered in coordination store" />
-        <Stat label="Active tasks" value={stats?.activeTasks ?? "—"} icon={<ListChecks />} accent="blue" hint="open · claimed · running" />
-        <Stat label="Completed" value={stats?.completedTasks ?? "—"} icon={<CheckCircle2 />} accent="green" />
-        <Stat label="Failed" value={stats?.failedTasks ?? "—"} icon={<XCircle />} accent="red" />
-        <Stat label="Inference calls" value={stats?.inferenceCalls ?? "—"} icon={<Brain />} accent="violet" hint={stats?.lastInferenceAt ? `last ${timeAgo(stats.lastInferenceAt)}` : "none yet"} />
+        <Stat label="Active tasks" value={stats?.activeTasks ?? "—"} icon={<ListChecks />} accent="blue" hint="unexpired stored tasks; may include stale claims" />
+        <Stat label="Completed" value={stats?.completedTasks ?? "—"} icon={<CheckCircle2 />} accent="green" hint="retained Arkiv tasks (up to 100)" />
+        <Stat label="Failed" value={stats?.failedTasks ?? "—"} icon={<XCircle />} accent="red" hint="retained Arkiv tasks (up to 100)" />
+        <Stat label="Inference calls" value={stats?.inferenceCalls ?? "—"} icon={<Brain />} accent="violet" hint={stats?.lastInferenceAt ? `last recorded ${timeAgo(stats.lastInferenceAt)}` : stats?.inferenceCalls ? "from retained workflow records" : "none yet"} />
         <Stat label="Identity" value={identity ? "Verified" : "Guest"} icon={<Fingerprint />} accent={identity ? "green" : "amber"} hint={identityConfig ? `World ID: ${identityConfig.mode}` : undefined} />
       </div>
 
@@ -61,7 +61,9 @@ export function DashboardPage({ onRun, onOpenTrace }: { onRun: () => void; onOpe
       <div className="grid gap-5 lg:grid-cols-[1.2fr_1fr]">
         <Panel title="LLM inference activity" icon={<Brain />} bodyClassName="p-0">
           {inference.length === 0 ? (
-            <Empty title="No inference yet">Run a workflow to see 0G request IDs, providers and costs.</Empty>
+            <Empty title={stats?.inferenceCalls ? "No request details in this session" : "No inference yet"}>
+              {stats?.inferenceCalls ? "The total above includes retained Arkiv workflows; per-request inference details are held in the API process." : "Run a workflow to see 0G request IDs, providers and costs."}
+            </Empty>
           ) : (
             <div className="vx-scroll max-h-[340px] overflow-auto">
               <table className="w-full text-left text-[12px]">

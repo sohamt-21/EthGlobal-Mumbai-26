@@ -1,8 +1,9 @@
-import type { Agent as AgentView, AgentId, Capability, RegisterAgentInput } from "../../shared/schemas"
+import type { Agent as AgentView, AgentId, AgentTrustReport, Capability, RegisterAgentInput } from "../../shared/schemas"
 import type { AgentRecord, CoordinationStore } from "../adapters/store/types"
 import { nowIso } from "../lib/async"
 import { AppError, notFound } from "../lib/errors"
 import { AGENT_TOOL_ALLOWLIST } from "../tools/registry"
+import { assessAgentTrust } from "./trust"
 import type { Agent } from "./types"
 
 type RuntimeState = {
@@ -24,6 +25,7 @@ const LEGACY_ENS_LABELS: Record<AgentId, string> = {
   security: "security.voxmesh.eth",
   metamask: "metamask.voxmesh.eth",
   liquidity: "liquidity.voxmesh.eth",
+  minara: "minara.voxmesh.eth",
 }
 
 /**
@@ -166,6 +168,20 @@ export class AgentRegistry {
       stats: { completed: s.completed, failed: s.failed },
       activity: s.activity,
     }
+  }
+
+  trustReport(id: AgentId): AgentTrustReport {
+    const s = this.state.get(id)
+    if (!s) throw notFound(`Agent ${id}`)
+    return assessAgentTrust({
+      agentId: id,
+      status: s.status,
+      registered: Boolean(s.entityKey),
+      ensName: s.ensName,
+      ownerVerified: s.ownerVerified,
+      completedTasks: s.completed,
+      failedTasks: s.failed,
+    })
   }
 
   list() {

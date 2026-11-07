@@ -46,6 +46,7 @@ export type WorkflowRecord = {
   inferenceRequestIds: string[]
   startedAt: string
   completedAt: string | null
+  lastInferenceAt?: string | null
 }
 
 export type IdentityRecord = {
@@ -97,6 +98,7 @@ export interface CoordinationStore {
 
   getExecution(key: string): Promise<Stored<ExecutionRecord> | null>
   listExecutions(filter: { workflowId?: string; taskId?: string; limit?: number }): Promise<Stored<ExecutionRecord>[]>
+  listWorkflows(filter?: { limit?: number }): Promise<Stored<WorkflowRecord>[]>
   listMessages(filter: { workflowId?: string; limit?: number }): Promise<Stored<AgentMessage>[]>
 
   saveWorkflow(record: WorkflowRecord): Promise<TxRef & { key: string }>

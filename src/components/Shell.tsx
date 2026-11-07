@@ -22,6 +22,7 @@ export const AGENT_COLOR: Record<string, string> = {
   security: "var(--vx-cyan)",
   metamask: "var(--vx-green)",
   liquidity: "var(--vx-amber)",
+  minara: "var(--vx-blue)",
 }
 
 export function Shell({ page, onNavigate, children }: { page: PageId; onNavigate: (p: PageId) => void; children: ReactNode }) {

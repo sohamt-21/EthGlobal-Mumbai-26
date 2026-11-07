@@ -8,6 +8,7 @@ const TYPE_FOR_CAPABILITY: Partial<Record<Capability, TaskType>> = {
   wallet_transfer: "wallet_transfer",
   market_research: "market_research",
   liquidity_simulation: "liquidity_simulation",
+  minara_assistant: "minara_assistant",
 }
 
 export type PlanValidation = { ok: true; plan: ExecutionPlan } | { ok: false; reason: string }
@@ -24,7 +25,7 @@ export function validatePlan(plan: ExecutionPlan, available: Set<Capability>, ma
   if (plan.intent === "general_question" && plan.steps.length > 0) return { ok: false, reason: "general_question plans must not delegate" }
   if (plan.intent !== "general_question" && plan.steps.length === 0) return { ok: false, reason: `${plan.intent} plan has no steps` }
   const marketSteps = plan.steps.filter((step) => step.capability === "market_research" || step.capability === "liquidity_simulation")
-  if (plan.steps.some((step) => step.capability !== "wallet_transfer" && step.capability !== "market_research" && step.capability !== "liquidity_simulation") && !hasSource) {
+  if (plan.steps.some((step) => step.capability !== "wallet_transfer" && step.capability !== "market_research" && step.capability !== "liquidity_simulation" && step.capability !== "minara_assistant") && !hasSource) {
     return { ok: false, reason: "Delegated analysis requires contract source" }
   }
   const walletSteps = plan.steps.filter((step) => step.capability === "wallet_transfer")
@@ -46,6 +47,13 @@ export function validatePlan(plan: ExecutionPlan, available: Set<Capability>, ma
     }
   } else if (marketSteps.length > 0) {
     return { ok: false, reason: "Market tasks require the prediction_market_simulation intent" }
+  }
+  const minaraSteps = plan.steps.filter((step) => step.capability === "minara_assistant")
+  if (plan.intent === "minara_assistant" && (plan.steps.length !== 1 || minaraSteps.length !== 1 || walletSteps.length > 0)) {
+    return { ok: false, reason: "minara_assistant plans require exactly one Minara step and no wallet transfers" }
+  }
+  if (plan.intent !== "minara_assistant" && minaraSteps.length > 0) {
+    return { ok: false, reason: "Minara tasks require the minara_assistant intent" }
   }
   const seen = new Set<string>()
   for (const step of plan.steps) {

@@ -2,7 +2,7 @@ import { z } from "zod"
 
 /* ──────────────────────────── primitives ──────────────────────────── */
 
-export const AgentIdSchema = z.enum(["supervisor", "research", "security", "metamask", "liquidity"])
+export const AgentIdSchema = z.enum(["supervisor", "research", "security", "metamask", "liquidity", "minara"])
 export type AgentId = z.infer<typeof AgentIdSchema>
 
 export const CapabilitySchema = z.enum([
@@ -16,6 +16,7 @@ export const CapabilitySchema = z.enum([
   "wallet_transfer",
   "market_research",
   "liquidity_simulation",
+  "minara_assistant",
 ])
 export type Capability = z.infer<typeof CapabilitySchema>
 
@@ -42,6 +43,47 @@ export const AgentSchema = z.object({
 })
 export type Agent = z.infer<typeof AgentSchema>
 
+export const AgentTrustDecisionSchema = z.enum(["safe_to_call", "review_before_call", "do_not_call"])
+export type AgentTrustDecision = z.infer<typeof AgentTrustDecisionSchema>
+
+export const AgentTrustAxisSchema = z.object({
+  score: z.number().min(0).max(25),
+  status: z.enum(["verified", "partial", "unknown", "negative"]),
+  signals: z.array(z.string()),
+})
+export type AgentTrustAxis = z.infer<typeof AgentTrustAxisSchema>
+
+export const AgentTrustReportSchema = z.object({
+  agentId: AgentIdSchema,
+  assessedAt: z.string(),
+  score: z.number().min(0).max(100),
+  decision: AgentTrustDecisionSchema,
+  axes: z.object({
+    registryProfile: AgentTrustAxisSchema,
+    reputationQuality: AgentTrustAxisSchema,
+    ensIdentity: AgentTrustAxisSchema,
+    humanAccountability: AgentTrustAxisSchema,
+  }),
+  identity: z.object({
+    erc8004AgentId: z.string().nullable(),
+    erc8004Registered: z.boolean().nullable(),
+    agentKitHumanBacked: z.boolean().nullable(),
+    worldIdOwnerVerified: z.boolean(),
+  }),
+  transactability: z.object({
+    x402Supported: z.boolean().nullable(),
+    status: z.enum(["supported", "unsupported", "unknown"]),
+  }),
+  evidence: z.object({
+    completedTasks: z.number().int().nonnegative(),
+    failedTasks: z.number().int().nonnegative(),
+    feedbackCount: z.number().int().nonnegative(),
+    independentRaters: z.number().int().nonnegative().nullable(),
+  }),
+  riskFlags: z.array(z.string()),
+})
+export type AgentTrustReport = z.infer<typeof AgentTrustReportSchema>
+
 export const RegisterAgentInputSchema = z.object({
   id: AgentIdSchema,
   endpoint: z.string().url().optional(),
@@ -54,7 +96,7 @@ export type RegisterAgentInput = z.infer<typeof RegisterAgentInputSchema>
 
 /* ──────────────────────────── Task ──────────────────────────── */
 
-export const TaskTypeSchema = z.enum(["research", "security_review", "wallet_transfer", "market_research", "liquidity_simulation", "aggregate"])
+export const TaskTypeSchema = z.enum(["research", "security_review", "wallet_transfer", "market_research", "liquidity_simulation", "minara_assistant", "aggregate"])
 export type TaskType = z.infer<typeof TaskTypeSchema>
 
 export const TaskStatusSchema = z.enum(["open", "claimed", "running", "completed", "failed", "cancelled"])
@@ -148,7 +190,7 @@ export type InferenceMetadata = z.infer<typeof InferenceMetadataSchema>
 
 /* ──────────────────────────── Plan ──────────────────────────── */
 
-export const IntentSchema = z.enum(["full_audit", "contract_research", "security_review", "wallet_transfer", "prediction_market_simulation", "general_question"])
+export const IntentSchema = z.enum(["full_audit", "contract_research", "security_review", "wallet_transfer", "prediction_market_simulation", "minara_assistant", "general_question"])
 export type Intent = z.infer<typeof IntentSchema>
 
 export const PlanStepSchema = z.object({
@@ -229,6 +271,7 @@ export type AgentResult = z.infer<typeof AgentResultSchema>
 
 export const TraceActionSchema = z.enum([
   "workflow.started",
+  "agent.trust_checked",
   "plan.created",
   "plan.fallback",
   "task.created",

@@ -55,7 +55,7 @@ export function createApp(rt: Runtime) {
     ok(res, statusCache.data)
   })
 
-  app.get("/api/runtime/stats", (_req, res) => ok(res, rt.orchestrator.stats(rt.registry.list().length)))
+  app.get("/api/runtime/stats", async (_req, res) => ok(res, await rt.orchestrator.stats(rt.registry.list().length)))
   app.get("/api/inference/recent", (_req, res) => ok(res, rt.orchestrator.recentInference()))
   app.get("/api/samples", (_req, res) => ok(res, SAMPLE_CONTRACTS))
 
@@ -66,6 +66,11 @@ export function createApp(rt: Runtime) {
     const id = AgentIdSchema.safeParse(param(req, "id"))
     if (!id.success) throw notFound(`Agent ${param(req, "id")}`)
     ok(res, rt.registry.view(id.data))
+  })
+  app.get("/api/agents/:id/trust", (req, res) => {
+    const id = AgentIdSchema.safeParse(param(req, "id"))
+    if (!id.success) throw notFound(`Agent ${param(req, "id")}`)
+    ok(res, rt.registry.trustReport(id.data))
   })
   app.post("/api/agents/register", rateLimit("register", 20, 60_000), async (req, res) => {
     const identity = rt.identity.require(bearer(req), "agent:register")
@@ -125,11 +130,15 @@ export function createApp(rt: Runtime) {
     const current = await rt.store.getTask(param(req, "key"))
     if (!current) throw notFound(`Task ${param(req, "key")}`)
     const agent = rt.registry.view(agentId)
+    const trustReport = rt.registry.trustReport(agentId)
+    if (trustReport.decision === "do_not_call") {
+      throw forbidden(`Agent ${agentId} failed the trust check: ${trustReport.riskFlags.join("; ")}`)
+    }
     if (!agent.capabilities.includes(current.data.requiredCapability)) {
       throw forbidden(`Agent ${agentId} lacks capability ${current.data.requiredCapability}`)
     }
     const msg = rt.bus.create({ workflowId: current.data.workflowId, taskId: current.data.id, correlationId: current.data.id, from: agentId, to: "supervisor", type: "task.claimed", payload: { via: "api" } })
-    ok(res, await rt.store.claimTask(param(req, "key"), agentId, msg))
+    ok(res, { ...await rt.store.claimTask(param(req, "key"), agentId, msg), trustReport })
   })
 
   app.post("/api/tasks/:key/complete", rateLimit("complete", 60, 60_000), async (req, res) => {

@@ -231,7 +231,7 @@ export function CommandPage({ onOpenTrace }: { onOpenTrace: (id: string) => void
                     return (
                       <div key={a.id} className="flex items-center gap-2.5 rounded-lg border border-white/[0.05] bg-white/[0.02] px-2.5 py-2">
                         <span className="grid size-7 place-items-center rounded-md" style={{ background: `color-mix(in oklch, ${AGENT_COLOR[a.id]} 16%, transparent)`, color: AGENT_COLOR[a.id] }}>
-                          {a.id === "security" ? <ShieldCheck className="size-3.5" /> : a.id === "research" ? <FileCode2 className="size-3.5" /> : a.id === "metamask" ? <Wallet className="size-3.5" /> : a.id === "liquidity" ? <TrendingUp className="size-3.5" /> : <Bot className="size-3.5" />}
+                          {a.id === "security" ? <ShieldCheck className="size-3.5" /> : a.id === "research" ? <FileCode2 className="size-3.5" /> : a.id === "metamask" ? <Wallet className="size-3.5" /> : a.id === "liquidity" ? <TrendingUp className="size-3.5" /> : a.id === "minara" ? <Sparkles className="size-3.5" /> : <Bot className="size-3.5" />}
                         </span>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5 text-[12px] font-medium">
